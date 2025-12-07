@@ -873,41 +873,85 @@ namespace Oxide.Plugins
         // Update kill feed UI for all players
         private void UpdateKillFeedForAll()
         {
+            Puts($"[KillFeed] UpdateKillFeedForAll called - current feed has {killFeed.Count} entries");
+            
             foreach (var player in BasePlayer.activePlayerList)
             {
-                if (redTeam.Contains(player.userID) || blueTeam.Contains(player.userID) || blackTeam.Contains(player.userID))
+                if (player == null || !player.IsConnected)
                 {
-                    ShowKillFeed(player);
+                    Puts($"[KillFeed] Skipping null or disconnected player");
+                    continue;
                 }
+                
+                // Show kill feed to ALL players (not just team members during match)
+                // This ensures kill feed is visible even in lobby
+                Puts($"[KillFeed] Showing kill feed to player: {player.displayName}");
+                ShowKillFeed(player);
             }
         }
         
         // Show kill feed UI
         private void ShowKillFeed(BasePlayer player)
         {
+            if (player == null || !player.IsConnected) return;
+            
+            Puts($"[KillFeed] ShowKillFeed called for {player.displayName}, feed entries: {killFeed.Count}");
+            
+            // Always destroy old UI first
+            CuiHelper.DestroyUi(player, "KillFeedContainer");
+            
+            if (killFeed.Count == 0)
+            {
+                Puts($"[KillFeed] No kill feed entries to display");
+                return;
+            }
+            
             var container = new CuiElementContainer();
+            
+            // Create main container first
+            container.Add(new CuiPanel
+            {
+                Image = { Color = "0 0 0 0" },
+                RectTransform = { AnchorMin = "0 0", AnchorMax = "1 1" }
+            }, "Hud", "KillFeedContainer");
             
             float yPos = 0.85f; // Start from top
             int index = 0;
+            
+            Puts($"[KillFeed] Creating UI elements for {killFeed.Count} entries");
             
             foreach (var entry in killFeed)
             {
                 if (index >= MAX_KILL_FEED_ENTRIES) break;
                 
+                Puts($"[KillFeed] Entry {index}: {entry.KillerName} -> {entry.VictimName}");
+                
                 // Fade effect based on age
                 float age = UnityEngine.Time.time - entry.Timestamp;
                 float alpha = Mathf.Clamp(1f - (age / 10f), 0.3f, 1f);
                 
-                // Get team colors
-                string killerColor = teamConfigs[entry.KillerTeam].HexColor;
-                string victimColor = teamConfigs[entry.VictimTeam].HexColor;
+                // Get team colors - handle empty team strings
+                string killerColor = "#FFFFFF"; // Default white
+                string victimColor = "#FFFFFF"; // Default white
+                
+                if (!string.IsNullOrEmpty(entry.KillerTeam) && teamConfigs.ContainsKey(entry.KillerTeam))
+                {
+                    killerColor = teamConfigs[entry.KillerTeam].HexColor;
+                }
+                
+                if (!string.IsNullOrEmpty(entry.VictimTeam) && teamConfigs.ContainsKey(entry.VictimTeam))
+                {
+                    victimColor = teamConfigs[entry.VictimTeam].HexColor;
+                }
+                
+                Puts($"[KillFeed] Colors - Killer: {killerColor}, Victim: {victimColor}");
                 
                 // Background panel
                 container.Add(new CuiPanel
                 {
                     Image = { Color = $"0.1 0.1 0.1 {0.8f * alpha}" },
                     RectTransform = { AnchorMin = "0.01 " + (yPos - index * 0.05f - 0.045f), AnchorMax = "0.35 " + (yPos - index * 0.05f) }
-                }, "Hud", $"KillFeed_{index}");
+                }, "KillFeedContainer", $"KillFeed_{index}");
                 
                 // Killer name (team colored)
                 container.Add(new CuiLabel
@@ -963,17 +1007,9 @@ namespace Oxide.Plugins
                 index++;
             }
             
-            CuiHelper.DestroyUi(player, "KillFeedContainer");
-            if (container.Count > 0)
-            {
-                container.Add(new CuiPanel
-                {
-                    Image = { Color = "0 0 0 0" },
-                    RectTransform = { AnchorMin = "0 0", AnchorMax = "1 1" }
-                }, "Hud", "KillFeedContainer");
-                
-                CuiHelper.AddUi(player, container);
-            }
+            Puts($"[KillFeed] Adding UI with {container.Count} elements to player {player.displayName}");
+            CuiHelper.AddUi(player, container);
+            Puts($"[KillFeed] UI added successfully");
         }
         
         // Helper to convert hex color to RGB
@@ -1349,6 +1385,68 @@ namespace Oxide.Plugins
         // ==========================================
         // 8. PHYSICS & GAME LOGIC
         // ==========================================
+        
+        // Handle player connection - teleport to lobby spawn
+        void OnPlayerConnected(BasePlayer player)
+        {
+            if (player == null) return;
+            
+            Puts($"[OnPlayerConnected] Player {player.displayName} connected");
+            
+            // Teleport to lobby spawn if it's set
+            if (lobbySpawnPos != Vector3.zero)
+            {
+                Puts($"[OnPlayerConnected] Lobby spawn is set at {lobbySpawnPos}, scheduling teleport");
+                
+                // Wait a bit for player to fully load before teleporting
+                timer.Once(2f, () =>
+                {
+                    if (player != null && player.IsConnected)
+                    {
+                        Puts($"[OnPlayerConnected] Executing teleport for {player.displayName}");
+                        
+                        // Wake player if sleeping
+                        if (player.IsSleeping())
+                        {
+                            Puts($"[OnPlayerConnected] Player is sleeping, waking them up");
+                            player.EndSleeping();
+                        }
+                        
+                        // Teleport to lobby
+                        player.Teleport(lobbySpawnPos);
+                        player.ClientRPCPlayer(null, player, "ForcePositionTo", lobbySpawnPos);
+                        player.SendNetworkUpdateImmediate();
+                        
+                        Puts($"[OnPlayerConnected] Teleported {player.displayName} to lobby spawn at {lobbySpawnPos}");
+                        
+                        // Show join UI after teleport
+                        timer.Once(1f, () =>
+                        {
+                            if (player != null && player.IsConnected)
+                            {
+                                ShowTeamSelectUI(player);
+                                SendReply(player, "⚽ Welcome! Select your team to join the match!");
+                            }
+                        });
+                    }
+                });
+            }
+            else
+            {
+                Puts($"[OnPlayerConnected] Lobby spawn not set (Vector3.zero), player will spawn at default location");
+                
+                // Still show team select UI even if lobby spawn not set
+                timer.Once(3f, () =>
+                {
+                    if (player != null && player.IsConnected)
+                    {
+                        ShowTeamSelectUI(player);
+                        SendReply(player, "⚽ Welcome! Select your team to join the match!");
+                    }
+                });
+            }
+        }
+        
         void OnPlayerRespawn(BasePlayer player)
         {
             if (matchStarted && (redTeam.Contains(player.userID) || blueTeam.Contains(player.userID) || blackTeam.Contains(player.userID)))
@@ -1441,10 +1539,11 @@ namespace Oxide.Plugins
             if (entity == null || player == null) return;
             
             // Auto-destroy ALL player-placed entities after 7 seconds (ALWAYS active, not just during matches)
-            string shortName = entity.ShortPrefabName ?? "barricade.wood.cover";
+            string shortName = entity.ShortPrefabName ?? "unknown";
             string fullName = entity.PrefabName ?? "";
             
-            Puts($"[EntityBuilt] Player {player.displayName} placed {shortName} at {entity.transform.position}");
+            Puts($"[EntityBuilt] Player {player.displayName} placed {shortName} (full: {fullName}) at {entity.transform.position}");
+            Puts($"[EntityBuilt] Entity Net ID: {entity.net.ID}, IsDestroyed: {entity.IsDestroyed}");
             
             // Check if it's a deployable/buildable (barricades, walls, boxes, etc.)
             bool shouldDestroy = shortName.Contains("barricade") || 
@@ -1456,41 +1555,76 @@ namespace Oxide.Plugins
                                  shortName.Contains("box") ||
                                  shortName.Contains("shutter") ||
                                  shortName.Contains("door") ||
+                                 shortName.Contains("wood") ||
+                                 shortName.Contains("cover") ||
                                  entity is BuildingBlock ||
                                  entity is Deployable;
+            
+            Puts($"[EntityBuilt] Should destroy: {shouldDestroy}");
             
             if (shouldDestroy)
             {
                 Puts($"[EntityBuilt] Entity {shortName} WILL be destroyed in 7 seconds (ID: {entity.net.ID})");
                 SendReply(player, $"⚠ {shortName} will auto-destroy in 7 seconds!");
                 
+                // Capture entity reference for timer closure
+                var entityId = entity.net.ID;
+                var entityRef = entity;
+                
                 // Store timer reference
                 var destroyTimer = timer.Once(7f, () =>
                 {
-                    Puts($"[EntityDestroy] Timer fired for {shortName} ID: {entity.net.ID}");
+                    Puts($"[EntityDestroy] Timer FIRED for {shortName} ID: {entityId}");
+                    Puts($"[EntityDestroy] Entity reference null: {entityRef == null}, IsDestroyed: {entityRef?.IsDestroyed}");
                     
-                    if (entity != null && !entity.IsDestroyed)
+                    if (entityRef != null && !entityRef.IsDestroyed)
                     {
                         Puts($"[EntityDestroy] Entity still exists, proceeding with destruction");
-                        Puts($"[EntityDestroy] Destroying {shortName} ID: {entity.net.ID}");
-                        entity.Kill(BaseNetworkable.DestroyMode.None);
-                        Puts($"[EntityDestroy] Entity destroyed successfully");
+                        Puts($"[EntityDestroy] Calling Kill() on {shortName} ID: {entityId}");
+                        
+                        try
+                        {
+                            entityRef.Kill(BaseNetworkable.DestroyMode.None);
+                            Puts($"[EntityDestroy] Kill() executed successfully for {shortName}");
+                            
+                            // Verify destruction
+                            NextTick(() =>
+                            {
+                                if (entityRef != null)
+                                {
+                                    Puts($"[EntityDestroy] Post-kill check - IsDestroyed: {entityRef.IsDestroyed}");
+                                }
+                            });
+                        }
+                        catch (Exception ex)
+                        {
+                            Puts($"[EntityDestroy] ERROR killing entity: {ex.Message}");
+                            Puts($"[EntityDestroy] Stack trace: {ex.StackTrace}");
+                        }
                     }
                     else
                     {
-                        Puts($"[EntityDestroy] Entity already destroyed or null ID: {entity?.net.ID}");
+                        Puts($"[EntityDestroy] Entity already destroyed or null - ID: {entityId}");
                     }
                     
                     // Clean up timer reference
-                    if (entity != null)
+                    if (entityTimers.ContainsKey(entityId))
                     {
-                        entityTimers.Remove(entity.net.ID);
-                        Puts($"[EntityDestroy] Removed timer from tracking dictionary");
+                        entityTimers.Remove(entityId);
+                        Puts($"[EntityDestroy] Removed timer from tracking dictionary for ID: {entityId}");
                     }
                 });
                 
-                entityTimers[entity.net.ID] = destroyTimer;
-                Puts($"[EntityBuilt] Timer stored with ID: {entity.net.ID}");
+                entityTimers[entityId] = destroyTimer;
+                Puts($"[EntityBuilt] Timer stored with ID: {entityId}, total tracked timers: {entityTimers.Count}");
+                
+                // Additional countdown notifications
+                timer.Once(4f, () => {
+                    if (player != null && player.IsConnected && entityRef != null && !entityRef.IsDestroyed)
+                    {
+                        SendReply(player, $"⚠ {shortName} destroying in 3 seconds...");
+                    }
+                });
             }
             else
             {
