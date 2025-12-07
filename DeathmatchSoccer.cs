@@ -495,6 +495,54 @@ namespace Oxide.Plugins
         
         [ChatCommand("reset_ball")] private void CmdResetBall(BasePlayer p, string c, string[] a) { if(p.IsAdmin){ SpawnBall(); SendReply(p, "Ball Reset."); }}
         
+        [ChatCommand("test_lobby_spawn")]
+        private void CmdTestLobbySpawn(BasePlayer player, string command, string[] args)
+        {
+            if (!player.IsAdmin) return;
+            
+            if (lobbySpawnPos == Vector3.zero)
+            {
+                SendReply(player, "❌ Lobby spawn not set! Use /set_lobby_spawn first.");
+                return;
+            }
+            
+            SendReply(player, $"Testing lobby spawn teleport to {lobbySpawnPos}...");
+            Puts($"[TestLobby] Admin {player.displayName} testing lobby spawn teleport");
+            
+            // Wake player if sleeping
+            if (player.IsSleeping())
+            {
+                player.EndSleeping();
+                Puts($"[TestLobby] Woke up sleeping player");
+            }
+            
+            // Teleport
+            player.Teleport(lobbySpawnPos);
+            player.ClientRPCPlayer(null, player, "ForcePositionTo", lobbySpawnPos);
+            player.SendNetworkUpdateImmediate();
+            
+            SendReply(player, $"✓ Teleported to lobby spawn!");
+            Puts($"[TestLobby] Teleport completed");
+        }
+        
+        [ChatCommand("debug_entities")]
+        private void CmdDebugEntities(BasePlayer player, string command, string[] args)
+        {
+            if (!player.IsAdmin) return;
+            
+            SendReply(player, $"=== ENTITY TIMER DEBUG ===");
+            SendReply(player, $"Total tracked timers: {entityTimers.Count}");
+            
+            int index = 0;
+            foreach (var kvp in entityTimers)
+            {
+                SendReply(player, $"#{index++}: ID={kvp.Key}, Timer={kvp.Value != null && !kvp.Value.Destroyed}");
+                if (index >= 10) break; // Limit to 10 entries
+            }
+            
+            Puts($"[DebugEntities] Admin requested entity timer debug - {entityTimers.Count} tracked");
+        }
+        
         [ChatCommand("rotation")]
         private void CmdRotation(BasePlayer player, string command, string[] args)
         {
@@ -1392,6 +1440,20 @@ namespace Oxide.Plugins
             if (player == null) return;
             
             Puts($"[OnPlayerConnected] Player {player.displayName} connected");
+            
+            // Check if player is already on a team and match is active
+            bool isOnTeam = redTeam.Contains(player.userID) || 
+                           blueTeam.Contains(player.userID) || 
+                           blackTeam.Contains(player.userID);
+            
+            Puts($"[OnPlayerConnected] Player is on team: {isOnTeam}, Match started: {matchStarted}");
+            
+            // If match is active and player is on a team, let OnPlayerRespawn handle spawning
+            if (matchStarted && isOnTeam)
+            {
+                Puts($"[OnPlayerConnected] Match active and player on team - letting OnPlayerRespawn handle spawn");
+                return;
+            }
             
             // Teleport to lobby spawn if it's set
             if (lobbySpawnPos != Vector3.zero)
