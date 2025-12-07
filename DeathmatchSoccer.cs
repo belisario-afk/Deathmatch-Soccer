@@ -452,14 +452,24 @@ namespace Oxide.Plugins
             
             Puts($"[LobbySpawn] Admin {p.displayName} running /set_lobby_spawn at position {p.transform.position}");
             
-            // Get position slightly above ground to prevent spawning in air
+            // Try to find ground below player for better spawn position
             RaycastHit hit;
-            Puts($"[LobbySpawn] Performing raycast from {p.transform.position + Vector3.up} going down");
-            if (Physics.Raycast(p.transform.position + Vector3.up, Vector3.down, out hit, 10f, LayerMask.GetMask("Terrain", "World", "Construction")))
+            Vector3 rayStart = p.transform.position + Vector3.up;
+            Puts($"[LobbySpawn] Performing raycast from {rayStart} going down");
+            
+            // Try with default layers first
+            if (Physics.Raycast(rayStart, Vector3.down, out hit, 10f, LayerMask.GetMask("Terrain", "World", "Construction")))
             {
                 lobbySpawnPos = hit.point + new Vector3(0, 0.5f, 0); // Slightly above ground
                 Puts($"[LobbySpawn] Ground found at {hit.point}, setting spawn 0.5m above at: {lobbySpawnPos}");
             }
+            // Try with all layers as fallback
+            else if (Physics.Raycast(rayStart, Vector3.down, out hit, 10f))
+            {
+                lobbySpawnPos = hit.point + new Vector3(0, 0.5f, 0);
+                Puts($"[LobbySpawn] Ground found (all layers) at {hit.point}, setting spawn at: {lobbySpawnPos}");
+            }
+            // Use player position as final fallback
             else
             {
                 lobbySpawnPos = p.transform.position;
@@ -468,7 +478,8 @@ namespace Oxide.Plugins
             
             SaveArenaData();
             Puts($"[LobbySpawn] Lobby spawn saved to data file");
-            SendReply(p, $"✓ Lobby spawn point set at {lobbySpawnPos}! Players will teleport here during lobby.");
+            SendReply(p, $"✓ Lobby spawn point set at {lobbySpawnPos}! Players will teleport here on join.");
+            SendReply(p, $"⚠ Test with /test_lobby_spawn to verify!");
             Puts($"[LobbySpawn] Confirmation sent to admin");
         }
         
@@ -1627,7 +1638,10 @@ namespace Oxide.Plugins
             if (shouldDestroy)
             {
                 Puts($"[EntityBuilt] Entity {shortName} WILL be destroyed in 7 seconds (ID: {entity.net.ID})");
-                SendReply(player, $"⚠ {shortName} will auto-destroy in 7 seconds!");
+                
+                // Show immediate notifications to player
+                SendReply(player, $"⚠ Your {shortName} will auto-destroy in 7 seconds!");
+                player.ShowToast(GameTip.Styles.Red_Normal, $"⚠ {shortName} auto-destroys in 7s!");
                 
                 // Capture entity reference for timer closure
                 var entityId = entity.net.ID;
