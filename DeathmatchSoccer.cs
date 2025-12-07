@@ -677,8 +677,18 @@ namespace Oxide.Plugins
         // 5. JOINING & TEAMS
         // ==========================================
         [ChatCommand("help")]
-        [ChatCommand("commands")]
         private void CmdHelp(BasePlayer player, string command, string[] args)
+        {
+            ShowHelpMenu(player);
+        }
+        
+        [ChatCommand("commands")]
+        private void CmdCommands(BasePlayer player, string command, string[] args)
+        {
+            ShowHelpMenu(player);
+        }
+        
+        private void ShowHelpMenu(BasePlayer player)
         {
             SendReply(player, "═══════════════════════════════════");
             SendReply(player, "DEATHMATCH SOCCER - COMMANDS");
