@@ -314,6 +314,11 @@ namespace Oxide.Plugins
         // ==========================================
         void OnServerInitialized()
         {
+            Puts("═══════════════════════════════════");
+            Puts("DeathmatchSoccer Plugin Loaded!");
+            Puts("Version: 5.4.0");
+            Puts("═══════════════════════════════════");
+            
             LoadArenaData(); // Load saved goals
             
             if (ImageLibrary != null)
@@ -328,6 +333,9 @@ namespace Oxide.Plugins
                 ImageLibrary.Call("AddImage", ImgGoalBannerBlackRed, "Soccer_Goal_Banner_BlackRed");
                 ImageLibrary.Call("AddImage", ImgGoalBannerBlueBlack, "Soccer_Goal_Banner_BlueBlack");
             }
+            
+            Puts("DeathmatchSoccer: Hooks registered successfully");
+            Puts("DeathmatchSoccer: OnEntityBuilt hook should now be active");
         }
 
         void Unload()
@@ -668,6 +676,54 @@ namespace Oxide.Plugins
         // ==========================================
         // 5. JOINING & TEAMS
         // ==========================================
+        [ChatCommand("help")]
+        [ChatCommand("commands")]
+        private void CmdHelp(BasePlayer player, string command, string[] args)
+        {
+            SendReply(player, "═══════════════════════════════════");
+            SendReply(player, "DEATHMATCH SOCCER - COMMANDS");
+            SendReply(player, "═══════════════════════════════════");
+            
+            SendReply(player, "--- PLAYER COMMANDS ---");
+            SendReply(player, "/join [team] - Join a team (blue/red/black) or show team select UI");
+            SendReply(player, "/leave - Leave your current team and return to lobby");
+            SendReply(player, "/teams - Show team selection UI");
+            SendReply(player, "/help or /commands - Show this help menu");
+            
+            if (player.IsAdmin)
+            {
+                SendReply(player, "\n--- ADMIN COMMANDS - Setup ---");
+                SendReply(player, "/set_red - Set red team goal position");
+                SendReply(player, "/set_blue - Set blue team goal position");
+                SendReply(player, "/set_black1 - Set black goal 1 (at red position)");
+                SendReply(player, "/set_black2 - Set black goal 2 (at blue position)");
+                SendReply(player, "/set_center - Set ball spawn position");
+                SendReply(player, "/set_lobby_spawn - Set lobby spawn point");
+                SendReply(player, "/set_loser_spawn - Set spawn for losing team");
+                SendReply(player, "/goal_size <width> <height> <depth> - Set goal dimensions");
+                
+                SendReply(player, "\n--- ADMIN COMMANDS - Match Control ---");
+                SendReply(player, "/start_match - Start the match");
+                SendReply(player, "/reset_ball - Reset ball to center");
+                SendReply(player, "/rotation - Toggle rotation mode ON/OFF");
+                
+                SendReply(player, "\n--- ADMIN COMMANDS - Data ---");
+                SendReply(player, "/save_goals - Save arena configuration");
+                SendReply(player, "/load_goals - Reload arena configuration");
+                
+                SendReply(player, "\n--- ADMIN COMMANDS - Skins ---");
+                SendReply(player, "/setskin <team> <item> <skinId> - Set team skin");
+                SendReply(player, "/showskins - Display all team skins");
+                
+                SendReply(player, "\n--- ADMIN COMMANDS - Debug ---");
+                SendReply(player, "/test_lobby_spawn - Test lobby spawn teleport");
+                SendReply(player, "/debug_entities - Show tracked entity timers");
+                SendReply(player, "/goal_debug - Toggle goal zone visualization");
+            }
+            
+            SendReply(player, "═══════════════════════════════════");
+        }
+        
         [ChatCommand("teams")]
         private void CmdTeams(BasePlayer player, string command, string[] args)
         {
@@ -697,6 +753,69 @@ namespace Oxide.Plugins
             else if (team == "blue") { blueTeam.Add(player.userID); CheckRole(player, "blue"); }
             else if (team == "black") { blackTeam.Add(player.userID); CheckRole(player, "black"); }
             else SendReply(player, "Invalid team. Use: blue, red, or black");
+        }
+        
+        [ChatCommand("leave")]
+        private void CmdLeave(BasePlayer player, string command, string[] args)
+        {
+            // Remove player from all teams
+            bool wasOnTeam = redTeam.Remove(player.userID) || 
+                            blueTeam.Remove(player.userID) || 
+                            blackTeam.Remove(player.userID);
+            
+            if (!wasOnTeam)
+            {
+                SendReply(player, "You are not on any team.");
+                return;
+            }
+            
+            // Clean up player data
+            playerRoles.Remove(player.userID);
+            ballRangeState.Remove(player.userID);
+            
+            // Clean up UI
+            CuiHelper.DestroyUi(player, "BallRangeHUD");
+            CuiHelper.DestroyUi(player, "LeashHUD");
+            CuiHelper.DestroyUi(player, "TeamSelectUI");
+            CuiHelper.DestroyUi(player, "RoleSelectUI");
+            CuiHelper.DestroyUi(player, "SoccerScoreboard");
+            CuiHelper.DestroyUi(player, "SoccerTicker");
+            
+            // Strip inventory
+            player.inventory.Strip();
+            
+            // Teleport to lobby if set
+            if (lobbySpawnPos != Vector3.zero)
+            {
+                Puts($"[Leave] Player {player.displayName} left team, teleporting to lobby");
+                
+                // Wake player if sleeping
+                if (player.IsSleeping())
+                {
+                    player.EndSleeping();
+                }
+                
+                // Teleport to lobby
+                player.Teleport(lobbySpawnPos);
+                player.ClientRPCPlayer(null, player, "ForcePositionTo", lobbySpawnPos);
+                player.SendNetworkUpdateImmediate();
+                
+                SendReply(player, "✓ Left team and returned to lobby!");
+                
+                // Show team select UI after a moment
+                timer.Once(1f, () =>
+                {
+                    if (player != null && player.IsConnected)
+                    {
+                        ShowTeamSelectUI(player);
+                    }
+                });
+            }
+            else
+            {
+                SendReply(player, "✓ Left team! Use /join to select a new team.");
+                Puts($"[Leave] Player {player.displayName} left team (no lobby spawn set)");
+            }
         }
 
         [ConsoleCommand("select_team")]
@@ -1606,10 +1725,31 @@ namespace Oxide.Plugins
         // Track player-placed entities for auto-destroy
         private Dictionary<NetworkableId, Timer> entityTimers = new Dictionary<NetworkableId, Timer>();
         
-        void OnEntityBuilt(Planner plan, GameObject go, BasePlayer player)
+        void OnEntityBuilt(Planner planner, GameObject gameObject)
         {
-            BaseEntity entity = go.ToBaseEntity();
-            if (entity == null || player == null) return;
+            Puts("════════════════════════════════════════════════");
+            Puts($"[EntityBuilt] HOOK FIRED! Planner: {planner != null}, GameObject: {gameObject != null}");
+            Puts("════════════════════════════════════════════════");
+            
+            if (planner == null || gameObject == null)
+            {
+                Puts($"[EntityBuilt] Early return - planner null: {planner == null}, gameObject null: {gameObject == null}");
+                return;
+            }
+            
+            BaseEntity entity = gameObject.ToBaseEntity();
+            if (entity == null)
+            {
+                Puts($"[EntityBuilt] Early return - entity is null after ToBaseEntity()");
+                return;
+            }
+            
+            BasePlayer player = planner.GetOwnerPlayer();
+            if (player == null)
+            {
+                Puts($"[EntityBuilt] Early return - player is null from GetOwnerPlayer()");
+                return;
+            }
             
             // Auto-destroy ALL player-placed entities after 7 seconds (ALWAYS active, not just during matches)
             string shortName = entity.ShortPrefabName ?? "unknown";
@@ -1705,6 +1845,78 @@ namespace Oxide.Plugins
             else
             {
                 Puts($"[EntityBuilt] Entity {shortName} will NOT be destroyed (not in destruction list)");
+            }
+        }
+        
+        // Alternative hook that might catch items being deployed
+        void OnItemDeployed(Deployer deployer, BaseEntity entity)
+        {
+            Puts("════════════════════════════════════════════════");
+            Puts($"[OnItemDeployed] HOOK FIRED! Deployer: {deployer != null}, Entity: {entity != null}");
+            
+            if (deployer == null || entity == null)
+            {
+                Puts($"[OnItemDeployed] Early return - deployer null: {deployer == null}, entity null: {entity == null}");
+                return;
+            }
+            
+            BasePlayer player = deployer.GetOwnerPlayer();
+            if (player == null)
+            {
+                Puts($"[OnItemDeployed] Early return - player is null");
+                return;
+            }
+            
+            string shortName = entity.ShortPrefabName ?? "unknown";
+            string fullName = entity.PrefabName ?? "";
+            
+            Puts($"[OnItemDeployed] Player {player.displayName} deployed {shortName} (full: {fullName}) at {entity.transform.position}");
+            Puts($"[OnItemDeployed] Entity Net ID: {entity.net.ID}");
+            
+            // Check if it's a deployable that should be destroyed
+            bool shouldDestroy = shortName.Contains("barricade") || 
+                                 fullName.Contains("barricade") ||
+                                 shortName.Contains("wall") ||
+                                 fullName.Contains("wall") ||
+                                 shortName.Contains("wood") ||
+                                 shortName.Contains("cover") ||
+                                 entity is Deployable;
+            
+            Puts($"[OnItemDeployed] Should destroy: {shouldDestroy}");
+            
+            if (shouldDestroy)
+            {
+                Puts($"[OnItemDeployed] Setting up 7-second destruction timer");
+                
+                SendReply(player, $"⚠ Your {shortName} will auto-destroy in 7 seconds!");
+                player.ShowToast(GameTip.Styles.Red_Normal, $"⚠ {shortName} auto-destroys in 7s!");
+                
+                var entityId = entity.net.ID;
+                var entityRef = entity;
+                
+                var destroyTimer = timer.Once(7f, () =>
+                {
+                    Puts($"[OnItemDeployed-Destroy] Timer FIRED for {shortName} ID: {entityId}");
+                    
+                    if (entityRef != null && !entityRef.IsDestroyed)
+                    {
+                        Puts($"[OnItemDeployed-Destroy] Destroying entity");
+                        try
+                        {
+                            entityRef.Kill(BaseNetworkable.DestroyMode.None);
+                            Puts($"[OnItemDeployed-Destroy] Entity destroyed successfully");
+                        }
+                        catch (Exception ex)
+                        {
+                            Puts($"[OnItemDeployed-Destroy] ERROR: {ex.Message}");
+                        }
+                    }
+                    
+                    entityTimers.Remove(entityId);
+                });
+                
+                entityTimers[entityId] = destroyTimer;
+                Puts($"[OnItemDeployed] Timer stored, total timers: {entityTimers.Count}");
             }
         }
         
