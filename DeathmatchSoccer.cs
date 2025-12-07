@@ -1641,6 +1641,10 @@ namespace Oxide.Plugins
         
         void OnPlayerRespawn(BasePlayer player)
         {
+            Puts($"[OnPlayerRespawn] Called for {player.displayName}");
+            Puts($"[OnPlayerRespawn] Match started: {matchStarted}");
+            Puts($"[OnPlayerRespawn] On team: {redTeam.Contains(player.userID) || blueTeam.Contains(player.userID) || blackTeam.Contains(player.userID)}");
+            
             if (matchStarted && (redTeam.Contains(player.userID) || blueTeam.Contains(player.userID) || blackTeam.Contains(player.userID)))
             {
                 NextTick(() => {
@@ -1693,18 +1697,81 @@ namespace Oxide.Plugins
                     player.SendNetworkUpdateImmediate();
                 });
             }
+            else
+            {
+                // Player not on team or match not started - teleport to lobby
+                Puts($"[OnPlayerRespawn] Player not on team or match not started");
+                
+                if (lobbySpawnPos != Vector3.zero)
+                {
+                    Puts($"[OnPlayerRespawn] Teleporting to lobby spawn at {lobbySpawnPos}");
+                    
+                    NextTick(() => {
+                        if (player != null && player.IsConnected)
+                        {
+                            if (player.IsSleeping()) player.EndSleeping();
+                            
+                            player.Teleport(lobbySpawnPos);
+                            player.ClientRPCPlayer(null, player, "ForcePositionTo", lobbySpawnPos);
+                            player.SendNetworkUpdateImmediate();
+                            
+                            Puts($"[OnPlayerRespawn] Teleported {player.displayName} to lobby");
+                        }
+                    });
+                }
+                else
+                {
+                    Puts($"[OnPlayerRespawn] Lobby spawn not set, allowing default spawn");
+                }
+            }
         }
         
-        // Skip respawn screen - instant respawn
+        // Override spawn point selection to prevent sky spawns
         object OnPlayerRespawnOnMap(BasePlayer player, Vector3 position)
         {
+            Puts($"[OnPlayerRespawnOnMap] Called for {player.displayName} at position {position}");
+            
+            // If player is on a team during match, let OnPlayerRespawn handle it
             if (matchStarted && (redTeam.Contains(player.userID) || blueTeam.Contains(player.userID) || blackTeam.Contains(player.userID)))
             {
-                // Skip respawn screen by respawning immediately
-                return null;
+                Puts($"[OnPlayerRespawnOnMap] Player on team during match - allowing default");
+                return null; // Let OnPlayerRespawn handle team spawning
             }
+            
+            // If lobby spawn is set, override spawn position
+            if (lobbySpawnPos != Vector3.zero)
+            {
+                Puts($"[OnPlayerRespawnOnMap] Overriding spawn position to lobby: {lobbySpawnPos}");
+                
+                // Return the lobby spawn position to override Rust's spawn selection
+                BasePlayer.SpawnPoint spawnPoint = new BasePlayer.SpawnPoint
+                {
+                    pos = lobbySpawnPos,
+                    rot = Quaternion.identity
+                };
+                
+                return spawnPoint;
+            }
+            
+            Puts($"[OnPlayerRespawnOnMap] No override - allowing default spawn");
+            return null; // Allow default spawning
+        }
+        
+        // Alternative hook for spawn point determination
+        object OnFindSpawnPoint()
+        {
+            Puts($"[OnFindSpawnPoint] Called - checking if lobby spawn should be used");
+            
+            if (lobbySpawnPos != Vector3.zero)
+            {
+                Puts($"[OnFindSpawnPoint] Returning lobby spawn: {lobbySpawnPos}");
+                return lobbySpawnPos;
+            }
+            
+            Puts($"[OnFindSpawnPoint] No override");
             return null;
         }
+
 
         void OnEntityTakeDamage(BaseCombatEntity entity, HitInfo info)
         {
