@@ -370,6 +370,21 @@ namespace Oxide.Plugins
                 CuiHelper.DestroyUi(player, "RoleSelectUI");
                 CuiHelper.DestroyUi(player, "TeamSelectUI");
                 CuiHelper.DestroyUi(player, "LeashHUD");
+                CuiHelper.DestroyUi(player, "HostUI");
+            }
+        }
+        
+        // Handle host disconnect - transfer host to another player
+        void OnPlayerDisconnected(BasePlayer player, string reason)
+        {
+            if (player == null) return;
+            
+            // If host disconnected, select new host
+            if (player.userID == hostPlayerId)
+            {
+                Puts($"[Host] Host {player.displayName} disconnected, selecting new host");
+                hostPlayerId = 0; // Clear host
+                SelectHost(); // Select new host
             }
         }
 
@@ -396,7 +411,12 @@ namespace Oxide.Plugins
         [ChatCommand("start_match")]
         private void CmdStartMatch(BasePlayer player, string command, string[] args)
         {
-            if (!player.IsAdmin) return;
+            // Allow admins OR host to start match
+            if (!player.IsAdmin && player.userID != hostPlayerId) 
+            {
+                SendReply(player, "Only admins or the host can start the match!");
+                return;
+            }
             if (centerPos == Vector3.zero) { SendReply(player, "Error: Set Center first!"); return; }
             
             scoreRed = 0; scoreBlue = 0; scoreBlack = 0;
@@ -520,7 +540,18 @@ namespace Oxide.Plugins
             Puts($"Loser spawn set to: {loserSpawnPos}");
         }
         
-        [ChatCommand("reset_ball")] private void CmdResetBall(BasePlayer p, string c, string[] a) { if(p.IsAdmin){ SpawnBall(); SendReply(p, "Ball Reset."); }}
+        [ChatCommand("reset_ball")] 
+        private void CmdResetBall(BasePlayer p, string c, string[] a) 
+        { 
+            // Allow admins OR host to reset ball
+            if(!p.IsAdmin && p.userID != hostPlayerId)
+            {
+                SendReply(p, "Only admins or the host can reset the ball!");
+                return;
+            }
+            SpawnBall(); 
+            SendReply(p, "Ball Reset."); 
+        }
         
         [ChatCommand("test_lobby_spawn")]
         private void CmdTestLobbySpawn(BasePlayer player, string command, string[] args)
@@ -856,6 +887,9 @@ namespace Oxide.Plugins
             if (team == "red") { redTeam.Add(player.userID); CheckRole(player, "red"); }
             else if (team == "blue") { blueTeam.Add(player.userID); CheckRole(player, "blue"); }
             else if (team == "black") { blackTeam.Add(player.userID); CheckRole(player, "black"); }
+            
+            // Check if we need to select a host
+            SelectHost();
         }
 
         private void CheckRole(BasePlayer player, string team)
@@ -931,6 +965,12 @@ namespace Oxide.Plugins
             }
             GiveKit(player, role);
             UpdateScoreUI(player);
+            
+            // Show host UI if player is host
+            if (player.userID == hostPlayerId)
+            {
+                ShowHostUI(player);
+            }
         }
 
         // ==========================================
@@ -1710,6 +1750,97 @@ namespace Oxide.Plugins
             
             CuiHelper.AddUi(player, c);
         }
+        
+        // Show host UI panel with privileges
+        private void ShowHostUI(BasePlayer player)
+        {
+            if (player.userID != hostPlayerId) return; // Only show to host
+            
+            CuiHelper.DestroyUi(player, "HostUI");
+            var c = new CuiElementContainer();
+            
+            // Main host panel - top right corner
+            string panel = c.Add(new CuiPanel 
+            { 
+                Image = { Color = "0.8 0.6 0 0.95" }, 
+                RectTransform = { AnchorMin = "0.78 0.85", AnchorMax = "0.98 0.98" }, 
+                CursorEnabled = false 
+            }, "Overlay", "HostUI");
+            
+            // HOST badge
+            c.Add(new CuiLabel 
+            { 
+                Text = { Text = "🎮 HOST", FontSize = 18, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf", Color = "1 1 1 1" }, 
+                RectTransform = { AnchorMin = "0 0.65", AnchorMax = "1 0.95" } 
+            }, panel);
+            
+            // Privileges text
+            c.Add(new CuiLabel 
+            { 
+                Text = { Text = "Commands:", FontSize = 11, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.9" }, 
+                RectTransform = { AnchorMin = "0 0.45", AnchorMax = "1 0.65" } 
+            }, panel);
+            
+            c.Add(new CuiLabel 
+            { 
+                Text = { Text = "/start_match", FontSize = 10, Align = TextAnchor.MiddleCenter, Color = "0 1 0 1" }, 
+                RectTransform = { AnchorMin = "0 0.25", AnchorMax = "1 0.45" } 
+            }, panel);
+            
+            c.Add(new CuiLabel 
+            { 
+                Text = { Text = "/reset_ball", FontSize = 10, Align = TextAnchor.MiddleCenter, Color = "0 1 0 1" }, 
+                RectTransform = { AnchorMin = "0 0.05", AnchorMax = "1 0.25" } 
+            }, panel);
+            
+            CuiHelper.AddUi(player, c);
+        }
+        
+        // Select host - called when first player joins
+        private void SelectHost()
+        {
+            // If host already exists and is online, keep them
+            if (hostPlayerId != 0)
+            {
+                var existingHost = BasePlayer.FindByID(hostPlayerId);
+                if (existingHost != null && existingHost.IsConnected)
+                {
+                    return; // Keep existing host
+                }
+            }
+            
+            // Find new host from team players
+            List<ulong> allPlayers = new List<ulong>();
+            allPlayers.AddRange(redTeam);
+            allPlayers.AddRange(blueTeam);
+            allPlayers.AddRange(blackTeam);
+            
+            if (allPlayers.Count == 0) 
+            {
+                hostPlayerId = 0;
+                return;
+            }
+            
+            // Select random online player as host
+            var onlinePlayers = new List<BasePlayer>();
+            foreach (var playerId in allPlayers)
+            {
+                var player = BasePlayer.FindByID(playerId);
+                if (player != null && player.IsConnected)
+                {
+                    onlinePlayers.Add(player);
+                }
+            }
+            
+            if (onlinePlayers.Count > 0)
+            {
+                var newHost = onlinePlayers[UnityEngine.Random.Range(0, onlinePlayers.Count)];
+                hostPlayerId = newHost.userID;
+                PrintToChat($"<color=#FFD700>🎮 {newHost.displayName} is now the HOST!</color>");
+                SendReply(newHost, "<color=#FFD700>You are now the HOST! You can use /start_match and /reset_ball</color>");
+                ShowHostUI(newHost);
+            }
+        }
 
         private void StartTicker()
         {
@@ -2354,16 +2485,41 @@ namespace Oxide.Plugins
             // Check if player is in a team
             if (redTeam.Contains(player.userID) || blueTeam.Contains(player.userID) || blackTeam.Contains(player.userID))
             {
-                // Return false to block the drop AND recover the item
+                // Item has already been dropped, we need to remove it from world and return to player
                 NextTick(() => {
-                    // Return item to player if it was dropped
                     if (item != null && player != null && player.IsConnected)
                     {
-                        // Give item back to player's inventory
-                        player.GiveItem(item);
+                        // Find the dropped entity and kill it
+                        var droppedItem = item.GetWorldEntity();
+                        if (droppedItem != null && !droppedItem.IsDestroyed)
+                        {
+                            droppedItem.Kill();
+                        }
+                        
+                        // Create new item and give to player
+                        Item newItem = ItemManager.CreateByItemID(item.info.itemid, item.amount, item.skin);
+                        if (newItem != null)
+                        {
+                            player.GiveItem(newItem);
+                        }
                     }
                 });
-                return false; // Return false to prevent the drop action
+                return true; // Return true to indicate we handled it
+            }
+            return null;
+        }
+        
+        // Additional hook to catch item actions (drops via right-click menu, etc.)
+        object OnItemAction(Item item, string action, BasePlayer player)
+        {
+            if (player == null || item == null) return null;
+            
+            // Block drop and drop_all actions for team players
+            if ((action == "drop" || action == "drop_all") && 
+                (redTeam.Contains(player.userID) || blueTeam.Contains(player.userID) || blackTeam.Contains(player.userID)))
+            {
+                SendReply(player, "You cannot drop items while on a team!");
+                return true; // Block the action
             }
             return null;
         }
