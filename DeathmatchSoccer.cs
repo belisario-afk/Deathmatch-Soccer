@@ -16,13 +16,13 @@ namespace Oxide.Plugins
      * FEATURES:
      * - 3-Team System: Blue (SHELL-SEA/GRUB), Red (Loot-pool/DOORCAMPER), Black (PZG/ROAMER)
      * - Goal Swapping Rotation: 2 teams play, losing team's goal is replaced by waiting team's goal
-     * - Team Attire: Hazmat suits (Red: outbreak_scientist, Black: hazmatsuit_scientist_nvgm, Blue: hazmat.krieg)
+     * - Team Attire: Hazmat suits for field players (Red/Black/Blue), Heavy Armor for Goalies
      * - Modern UI: Team selection menu, dynamic scoreboard, 4-role selection
      * - 4 Roles with SoccerWeapons.cs Integration:
-     *   • Striker (100HP): Bat (Home Run) + Python (Phase Shift)
-     *   • Playmaker (125HP): Snowball Gun (Magnet) + Crossbow (Whistle)
-     *   • Enforcer (150HP): Nailgun (Yellow Card) + Bat (Home Run)
-     *   • Goalie (200HP): MGL (Medi-Launcher) + SPAS-12 + NVG (ESP)
+     *   • Striker (100HP): Bat (Home Run) + Nailgun Pistol (Phase Shift) + 3 Barricades
+     *   • Playmaker (125HP): Snowball Gun (Magnet) + Crossbow (Whistle) + 3 Barricades
+     *   • Enforcer (150HP): Nailgun (Yellow Card) + Bat (Home Run) + 3 Barricades
+     *   • Goalie (200HP): Heavy Armor + MGL (Medi-Launcher) + SPAS-12 + NVG (ESP) + 3 Barricades
      * - Active Goal System: Only active goals count for scoring
      * 
      * ROTATION SYSTEM:
@@ -1238,27 +1238,32 @@ namespace Oxide.Plugins
                          blueTeam.Contains(player.userID) ? "blue" : "black";
             TeamSkins skins = teamSkins[team];
             
-            // Team-specific hazmat suit
-            string hazmatSuit = team == "red" ? "hazmat.suit.scientist" :  // outbreak_scientist
-                               team == "black" ? "hazmat.suit.scientist.nvgm" : // hazmatsuit_scientist_nvgm  
-                               "hazmat.krieg"; // blue team
+            // Team-specific hazmat suit (NOT for goalies - they get armor)
+            string hazmatSuit = team == "red" ? "hazmat.suit" :  // outbreak_scientist (red hazmat)
+                               team == "black" ? "hazmat.suit" : // hazmatsuit_scientist_nvgm (black hazmat with NVG)
+                               "hazmat.suit"; // blue team (krieg hazmat)
             
-            // Give team hazmat suit to all roles
-            GiveItemWithSkin(player, hazmatSuit, 1, 0, player.inventory.containerWear);
+            // Give team hazmat suit to non-goalie roles
+            if (role != "Goalie")
+            {
+                GiveItemWithSkin(player, hazmatSuit, 1, 0, player.inventory.containerWear);
+            }
             
             // Role-specific loadouts with SoccerWeapons.cs integration
             if (role == "Striker") 
             {
                 // Striker (Scorer): Speed, Scoring, Juking
                 // Primary: Baseball Bat (Home Run - hits ball)
-                // Secondary: Python (Phase Shift - teleport to ball)
+                // Secondary: Nailgun Pistol (Phase Shift - teleport to ball)
                 GiveItemWithSkin(player, "mace.baseballbat", 1, 0, player.inventory.containerBelt);
-                GiveItemWithSkin(player, "pistol.python", 1, 0, player.inventory.containerBelt);
-                player.inventory.GiveItem(ItemManager.CreateByName("ammo.pistol", 200), player.inventory.containerMain);
+                GiveItemWithSkin(player, "pistol.nailgun", 1, 0, player.inventory.containerBelt);
+                player.inventory.GiveItem(ItemManager.CreateByName("ammo.nailgun.nails", 200), player.inventory.containerMain);
                 player.inventory.GiveItem(ItemManager.CreateByName("syringe.medical", 5), player.inventory.containerMain);
+                // Add 3 wooden barricades
+                player.inventory.GiveItem(ItemManager.CreateByName("barricade.wood.cover", 3), player.inventory.containerMain);
                 player.SetMaxHealth(100); 
                 player.health = 100;
-            } 
+            }
             else if (role == "Playmaker")
             {
                 // Playmaker (Midfield): Ball Control, Passing, Setups
@@ -1269,6 +1274,8 @@ namespace Oxide.Plugins
                 player.inventory.GiveItem(ItemManager.CreateByName("snowball", 100), player.inventory.containerMain);
                 player.inventory.GiveItem(ItemManager.CreateByName("arrow.wooden", 64), player.inventory.containerMain);
                 player.inventory.GiveItem(ItemManager.CreateByName("syringe.medical", 5), player.inventory.containerMain);
+                // Add 3 wooden barricades
+                player.inventory.GiveItem(ItemManager.CreateByName("barricade.wood.cover", 3), player.inventory.containerMain);
                 player.SetMaxHealth(125); 
                 player.health = 125;
             }
@@ -1277,10 +1284,12 @@ namespace Oxide.Plugins
                 // Enforcer (Defender): Tackling, Blocking, Clearing
                 // Primary: Nailgun (Yellow Card - tackles players)
                 // Secondary: Baseball Bat (Home Run - clears ball)
-                GiveItemWithSkin(player, "nailgun", 1, 0, player.inventory.containerBelt);
+                GiveItemWithSkin(player, "gun.nailgun", 1, 0, player.inventory.containerBelt);
                 GiveItemWithSkin(player, "mace.baseballbat", 1, 0, player.inventory.containerBelt);
                 player.inventory.GiveItem(ItemManager.CreateByName("ammo.nailgun.nails", 200), player.inventory.containerMain);
                 player.inventory.GiveItem(ItemManager.CreateByName("syringe.medical", 7), player.inventory.containerMain);
+                // Add 3 wooden barricades
+                player.inventory.GiveItem(ItemManager.CreateByName("barricade.wood.cover", 3), player.inventory.containerMain);
                 player.SetMaxHealth(150); 
                 player.health = 150;
             }
@@ -1289,13 +1298,29 @@ namespace Oxide.Plugins
                 // Goalie (Support): Saving Goals, Healing Team
                 // Primary: MGL (Medi-Launcher - heals teammates)
                 // Secondary: SPAS-12 (standard shooting)
-                // Wear: Night Vision Goggles (ESP - see players)
+                // Wear: Heavy Plate Armor + Hockey Mask + Boots (no hazmat suit)
+                
+                // HEAD: Hockey Facemask
+                GiveItemWithSkin(player, "metal.facemask.hockey", 1, 0, player.inventory.containerWear);
+                // CHEST: Heavy Plate Jacket
+                GiveItemWithSkin(player, "heavy.plate.jacket", 1, 0, player.inventory.containerWear);
+                // PANTS: Heavy Plate Pants
+                GiveItemWithSkin(player, "heavy.plate.pants", 1, 0, player.inventory.containerWear);
+                // SHOES: Boots
+                GiveItemWithSkin(player, "shoes.boots", 1, 0, player.inventory.containerWear);
+                
+                // Weapons
                 GiveItemWithSkin(player, "multiplegrenadelauncher", 1, 0, player.inventory.containerBelt);
                 GiveItemWithSkin(player, "shotgun.spas12", 1, 0, player.inventory.containerBelt);
                 GiveItemWithSkin(player, "nightvisiongoggles", 1, 0, player.inventory.containerWear);
+                
+                // Ammo and supplies
                 player.inventory.GiveItem(ItemManager.CreateByName("ammo.grenadelauncher.he", 12), player.inventory.containerMain);
                 player.inventory.GiveItem(ItemManager.CreateByName("ammo.shotgun", 64), player.inventory.containerMain);
                 player.inventory.GiveItem(ItemManager.CreateByName("syringe.medical", 10), player.inventory.containerMain);
+                // Add 3 wooden barricades
+                player.inventory.GiveItem(ItemManager.CreateByName("barricade.wood.cover", 3), player.inventory.containerMain);
+                
                 player.SetMaxHealth(200); 
                 player.health = 200;
             }
