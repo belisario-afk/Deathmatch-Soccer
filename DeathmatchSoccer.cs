@@ -80,6 +80,9 @@ namespace Oxide.Plugins
         private string ImgGoalBannerRedBlue = "https://i.imgur.com/Jb9y1Xm.png";
         private string ImgGoalBannerBlackRed = "https://i.imgur.com/8KqZx4Y.png";
         private string ImgGoalBannerBlueBlack = "https://i.imgur.com/5LmNp2X.png";
+        
+        // HOST badge image (displayed in host UI panel)
+        private string ImgHostBadge = "https://i.imgur.com/placeholder.png"; // TODO: Replace with actual HOST badge image URL
 
         [PluginReference] Plugin ImageLibrary;
         [PluginReference] Plugin Skins;
@@ -340,6 +343,9 @@ namespace Oxide.Plugins
                 ImageLibrary.Call("AddImage", ImgGoalBannerRedBlue, "Soccer_Goal_Banner_RedBlue");
                 ImageLibrary.Call("AddImage", ImgGoalBannerBlackRed, "Soccer_Goal_Banner_BlackRed");
                 ImageLibrary.Call("AddImage", ImgGoalBannerBlueBlack, "Soccer_Goal_Banner_BlueBlack");
+                
+                // Register HOST badge image
+                ImageLibrary.Call("AddImage", ImgHostBadge, "Host_Badge");
             }
             
             Puts("DeathmatchSoccer: Hooks registered successfully");
@@ -1767,31 +1773,24 @@ namespace Oxide.Plugins
                 CursorEnabled = false 
             }, "Overlay", "HostUI");
             
-            // Try to use ImageLibrary for HOST badge image, fallback to text
-            bool useImage = false;
-            if (ImageLibrary != null)
+            // Try to use ImageLibrary for HOST badge image (URL-based, like scoreboard)
+            string hostBadgeImg = GetImg("Host_Badge");
+            if (!string.IsNullOrEmpty(hostBadgeImg))
             {
-                string imageName = "host_badge"; // Image name in ImageLibrary
-                string imageId = (string)ImageLibrary.Call("GetImage", imageName);
-                if (!string.IsNullOrEmpty(imageId))
+                // Add image for HOST badge (downloaded from URL by ImageLibrary)
+                c.Add(new CuiElement
                 {
-                    // Add image for HOST badge
-                    c.Add(new CuiElement
+                    Parent = panel,
+                    Components =
                     {
-                        Parent = panel,
-                        Components =
-                        {
-                            new CuiRawImageComponent { Png = imageId },
-                            new CuiRectTransformComponent { AnchorMin = "0.25 0.65", AnchorMax = "0.75 0.95" }
-                        }
-                    });
-                    useImage = true;
-                }
+                        new CuiRawImageComponent { Png = hostBadgeImg },
+                        new CuiRectTransformComponent { AnchorMin = "0.25 0.65", AnchorMax = "0.75 0.95" }
+                    }
+                });
             }
-            
-            // Fallback to text HOST badge if no image available
-            if (!useImage)
+            else
             {
+                // Fallback to text HOST badge if ImageLibrary not available or image not loaded
                 c.Add(new CuiLabel 
                 { 
                     Text = { Text = "🎮 HOST", FontSize = 18, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf", Color = "1 1 1 1" }, 
