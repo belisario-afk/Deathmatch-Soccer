@@ -18,11 +18,12 @@ namespace Oxide.Plugins
      *    - Shoots vacuum projectiles that pull the ball
      *    - 25m radius vacuum effect on impact
      *    - Pulls ball with 50 force + 8 upward force
+     *    - 3.0s cooldown between shots (prevents spam with only 1 snowball)
      * 
      * 3. NAILGUN PISTOL - Yellow Card
      *    - Tackles enemy players, wounding them for 3 seconds
      *    - 100m range, 0.5m beam thickness (SphereCast)
-     *    - 0.5s cooldown between shots (prevents spam with only 6 nails)
+     *    - 2.0s cooldown between shots (prevents spam with only 6 nails)
      *    - Only hits players (ignores walls/ground via layer mask)
      * 
      * 4. PYTHON REVOLVER - Phase Shift
@@ -59,8 +60,9 @@ namespace Oxide.Plugins
         // CONFIGURATION
         // ==========================================================================
         
-        // Cooldown tracking for Yellow Card (Nailgun) to prevent spam
-        private Dictionary<ulong, float> tackleLastFired = new Dictionary<ulong, float>();
+        // Cooldown tracking to prevent spam
+        private Dictionary<ulong, float> tackleLastFired = new Dictionary<ulong, float>(); // Yellow Card (Nailgun)
+        private Dictionary<ulong, float> magnetLastFired = new Dictionary<ulong, float>(); // Magnet (Snowball)
         
         // WEAPONS
         private const string Medi_GunShortname = "multiplegrenadelauncher";
@@ -74,12 +76,13 @@ namespace Oxide.Plugins
         private const float Magnet_Speed = 60f; 
         private const float Magnet_Radius = 25f; // Vacuum radius
         private const float Magnet_Force = 50f; // Pull force
+        private const float Magnet_Cooldown = 3.0f; // Fire rate cooldown (3.0s between shots)
 
         private const string Tackle_GunShortname = "pistol.nailgun"; // Updated to pistol.nailgun
         private const float Tackle_Duration = 3.0f; 
         private const float Tackle_Range = 100f; // Maximum range
         private const float Tackle_Radius = 0.5f; // Spherecast radius (beam thickness)
-        private const float Tackle_Cooldown = 0.5f; // Fire rate cooldown (0.5s between shots)
+        private const float Tackle_Cooldown = 2.0f; // Fire rate cooldown (2.0s between shots)
 
         private const string Phase_GunShortname = "pistol.python";
         private const float Phase_Range = 100f; // Maximum teleport range
@@ -253,6 +256,22 @@ namespace Oxide.Plugins
 
             if (weaponName == Magnet_GunShortname)
             {
+                // Check cooldown for Magnet
+                float lastFired;
+                if (magnetLastFired.TryGetValue(player.userID, out lastFired))
+                {
+                    float timeSince = Time.time - lastFired;
+                    if (timeSince < Magnet_Cooldown)
+                    {
+                        float remaining = Magnet_Cooldown - timeSince;
+                        player.ChatMessage($"<color=#00ffff>Cooldown!</color> Wait {remaining:F1}s before using Magnet again.");
+                        return; // PREVENT the gun from firing during cooldown
+                    }
+                }
+                
+                // Update cooldown
+                magnetLastFired[player.userID] = Time.time;
+                
                 Vector3 spawnPos = player.eyes.position + (player.eyes.BodyForward() * 1.5f);
                 Vector3 velocity = player.eyes.BodyForward() * Magnet_Speed;
                 SpawnProjectile(spawnPos, velocity, player, Magnet_ItemToDrop, false);

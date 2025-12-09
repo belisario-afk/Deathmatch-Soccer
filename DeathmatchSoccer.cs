@@ -2297,21 +2297,23 @@ namespace Oxide.Plugins
             });
         }
 
-        // Protect waiting team goalies from radiation damage
+        // Protect ALL waiting team players from radiation damage
         // Waiting team is the 3rd team not currently playing in the match
+        // They are still "active" in the match but not their team's turn to play
         void OnRunPlayerMetabolism(PlayerMetabolism metabolism, BasePlayer player, float delta)
         {
             if (player == null || metabolism == null) return;
             
-            // Check if player is a goalie on the waiting team
+            // Check which team the player is on
             string team = redTeam.Contains(player.userID) ? "red" :
                          blueTeam.Contains(player.userID) ? "blue" :
                          blackTeam.Contains(player.userID) ? "black" : "";
             
-            // If player is on the waiting team and is a goalie
-            if (team == waitingTeam && playerRoles.ContainsKey(player.userID) && playerRoles[player.userID] == "Goalie")
+            // If player is on the waiting team (any role), protect from radiation
+            // This includes all players since they cannot return to goal during waiting
+            if (!string.IsNullOrEmpty(team) && team == waitingTeam)
             {
-                // Clear all radiation - waiting team goalies are immune
+                // Clear all radiation - waiting team players are immune
                 metabolism.radiation_poison.value = 0f;
                 metabolism.radiation_level.value = 0f;
             }
