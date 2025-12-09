@@ -1767,12 +1767,37 @@ namespace Oxide.Plugins
                 CursorEnabled = false 
             }, "Overlay", "HostUI");
             
-            // HOST badge
-            c.Add(new CuiLabel 
-            { 
-                Text = { Text = "🎮 HOST", FontSize = 18, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf", Color = "1 1 1 1" }, 
-                RectTransform = { AnchorMin = "0 0.65", AnchorMax = "1 0.95" } 
-            }, panel);
+            // Try to use ImageLibrary for HOST badge image, fallback to text
+            bool useImage = false;
+            if (ImageLibrary != null)
+            {
+                string imageName = "host_badge"; // Image name in ImageLibrary
+                string imageId = (string)ImageLibrary.Call("GetImage", imageName);
+                if (!string.IsNullOrEmpty(imageId))
+                {
+                    // Add image for HOST badge
+                    c.Add(new CuiElement
+                    {
+                        Parent = panel,
+                        Components =
+                        {
+                            new CuiRawImageComponent { Png = imageId },
+                            new CuiRectTransformComponent { AnchorMin = "0.25 0.65", AnchorMax = "0.75 0.95" }
+                        }
+                    });
+                    useImage = true;
+                }
+            }
+            
+            // Fallback to text HOST badge if no image available
+            if (!useImage)
+            {
+                c.Add(new CuiLabel 
+                { 
+                    Text = { Text = "🎮 HOST", FontSize = 18, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf", Color = "1 1 1 1" }, 
+                    RectTransform = { AnchorMin = "0 0.65", AnchorMax = "1 0.95" } 
+                }, panel);
+            }
             
             // Privileges text
             c.Add(new CuiLabel 

@@ -279,26 +279,15 @@ namespace Oxide.Plugins
 
             if (weaponName == Magnet_GunShortname)
             {
-                // CLEAR BASE GAME PROJECTILES - prevent ammo waste
-                if (projectiles != null && projectiles.projectiles != null)
-                {
-                    projectiles.projectiles.Clear();
-                }
-                
-                // Refund the ammo that was consumed
-                if (heldItem.GetHeldEntity() is BaseProjectile baseProj)
-                {
-                    baseProj.primaryMagazine.contents++;
-                    baseProj.SendNetworkUpdateImmediate();
-                }
-                
-                // Check cooldown for Magnet
+                // Check cooldown for Magnet FIRST
                 float lastFired;
+                bool onCooldown = false;
                 if (magnetLastFired.TryGetValue(player.userID, out lastFired))
                 {
                     float timeSince = Time.time - lastFired;
                     if (timeSince < Magnet_Cooldown)
                     {
+                        onCooldown = true;
                         // Only show message once per cooldown period
                         bool messageShown;
                         if (!magnetCooldownMessageShown.TryGetValue(player.userID, out messageShown) || !messageShown)
@@ -307,7 +296,6 @@ namespace Oxide.Plugins
                             player.ChatMessage($"<color=#00ffff>Cooldown!</color> Wait {remaining:F1}s before using Magnet again.");
                             magnetCooldownMessageShown[player.userID] = true;
                         }
-                        return; // PREVENT the gun from firing during cooldown
                     }
                     else
                     {
@@ -316,7 +304,24 @@ namespace Oxide.Plugins
                     }
                 }
                 
-                // Update cooldown
+                // ALWAYS clear base game projectiles - prevent projectile spawn
+                if (projectiles != null && projectiles.projectiles != null)
+                {
+                    projectiles.projectiles.Clear();
+                }
+                
+                // Only refund ammo if on cooldown (valid shots consume ammo normally)
+                if (onCooldown)
+                {
+                    if (heldItem.GetHeldEntity() is BaseProjectile baseProj)
+                    {
+                        baseProj.primaryMagazine.contents++;
+                        baseProj.SendNetworkUpdateImmediate();
+                    }
+                    return; // PREVENT the gun from firing during cooldown
+                }
+                
+                // Valid shot - update cooldown and fire ability
                 magnetLastFired[player.userID] = Time.time;
                 magnetCooldownMessageShown[player.userID] = false; // Reset message flag
                 
@@ -326,20 +331,13 @@ namespace Oxide.Plugins
             }
             else if (weaponName == Tackle_GunShortname)
             {
-                // CLEAR BASE GAME PROJECTILES - prevent ammo waste
+                // ALWAYS clear base game projectiles - prevent projectile spawn
                 if (projectiles != null && projectiles.projectiles != null)
                 {
                     projectiles.projectiles.Clear();
                 }
                 
-                // Refund the ammo that was consumed
-                if (heldItem.GetHeldEntity() is BaseProjectile baseProj)
-                {
-                    baseProj.primaryMagazine.contents++;
-                    baseProj.SendNetworkUpdateImmediate();
-                }
-                
-                ShootYellowCard(player);
+                ShootYellowCard(player, heldItem);
             }
             else if (weaponName == Phase_GunShortname) ShootPhaseShift(player);
             else if (weaponName == Whistle_GunShortname) ShootWhistle(player);
@@ -406,15 +404,17 @@ namespace Oxide.Plugins
         }
 
         // --- FIXED: Yellow Card now uses a Layer Mask to hit ONLY players with cooldown prevention ---
-        void ShootYellowCard(BasePlayer player)
+        void ShootYellowCard(BasePlayer player, Item heldItem)
         {
             // Check cooldown
             float lastFired;
+            bool onCooldown = false;
             if (tackleLastFired.TryGetValue(player.userID, out lastFired))
             {
                 float timeSince = Time.time - lastFired;
                 if (timeSince < Tackle_Cooldown)
                 {
+                    onCooldown = true;
                     // Only show message once per cooldown period
                     bool messageShown;
                     if (!tackleCooldownMessageShown.TryGetValue(player.userID, out messageShown) || !messageShown)
@@ -422,6 +422,13 @@ namespace Oxide.Plugins
                         float remaining = Tackle_Cooldown - timeSince;
                         player.ChatMessage($"<color=#ff0000>Cooldown!</color> Wait {remaining:F1}s before tackling again.");
                         tackleCooldownMessageShown[player.userID] = true;
+                    }
+                    
+                    // Refund ammo during cooldown
+                    if (heldItem != null && heldItem.GetHeldEntity() is BaseProjectile baseProj)
+                    {
+                        baseProj.primaryMagazine.contents++;
+                        baseProj.SendNetworkUpdateImmediate();
                     }
                     return;
                 }
