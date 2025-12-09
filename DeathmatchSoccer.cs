@@ -1271,7 +1271,8 @@ namespace Oxide.Plugins
                 // Secondary: Crossbow (Whistle - freezes ball)
                 GiveItemWithSkin(player, "snowballgun", 1, 0, player.inventory.containerBelt);
                 GiveItemWithSkin(player, "crossbow", 1, 0, player.inventory.containerBelt);
-                player.inventory.GiveItem(ItemManager.CreateByName("snowball", 100), player.inventory.containerMain);
+                // 1 snowball = 50 shots, so only give 1 snowball per respawn
+                player.inventory.GiveItem(ItemManager.CreateByName("snowball", 1), player.inventory.containerMain);
                 player.inventory.GiveItem(ItemManager.CreateByName("arrow.wooden", 64), player.inventory.containerMain);
                 player.inventory.GiveItem(ItemManager.CreateByName("syringe.medical", 5), player.inventory.containerMain);
                 // Add 3 wooden barricades
@@ -1286,7 +1287,8 @@ namespace Oxide.Plugins
                 // Secondary: Baseball Bat (Home Run - clears ball)
                 GiveItemWithSkin(player, "pistol.nailgun", 1, 0, player.inventory.containerBelt);
                 GiveItemWithSkin(player, "mace.baseballbat", 1, 0, player.inventory.containerBelt);
-                player.inventory.GiveItem(ItemManager.CreateByName("ammo.nailgun.nails", 200), player.inventory.containerMain);
+                // Limited to 6 nails to prevent spam
+                player.inventory.GiveItem(ItemManager.CreateByName("ammo.nailgun.nails", 6), player.inventory.containerMain);
                 player.inventory.GiveItem(ItemManager.CreateByName("syringe.medical", 7), player.inventory.containerMain);
                 // Add 3 wooden barricades
                 player.inventory.GiveItem(ItemManager.CreateByName("barricade.wood.cover", 3), player.inventory.containerMain);
@@ -2293,6 +2295,52 @@ namespace Oxide.Plugins
                     Puts($"[Death] Deleted corpse for {player.displayName}");
                 }
             });
+        }
+
+        // Protect waiting team goalies from radiation damage
+        // Waiting team is the 3rd team not currently playing in the match
+        void OnRunPlayerMetabolism(PlayerMetabolism metabolism, BasePlayer player, float delta)
+        {
+            if (player == null || metabolism == null) return;
+            
+            // Check if player is a goalie on the waiting team
+            string team = redTeam.Contains(player.userID) ? "red" :
+                         blueTeam.Contains(player.userID) ? "blue" :
+                         blackTeam.Contains(player.userID) ? "black" : "";
+            
+            // If player is on the waiting team and is a goalie
+            if (team == waitingTeam && playerRoles.ContainsKey(player.userID) && playerRoles[player.userID] == "Goalie")
+            {
+                // Clear all radiation - waiting team goalies are immune
+                metabolism.radiation_poison.value = 0f;
+                metabolism.radiation_level.value = 0f;
+            }
+        }
+        
+        // Prevent players from dropping items (but allow moving them in inventory)
+        object CanDropActiveItem(BasePlayer player)
+        {
+            // Check if player is in a team
+            if (redTeam.Contains(player.userID) || blueTeam.Contains(player.userID) || blackTeam.Contains(player.userID))
+            {
+                // Block item dropping
+                return false;
+            }
+            return null;
+        }
+        
+        // Also block dropping via right-click menu
+        object OnItemDropped(Item item, BasePlayer player)
+        {
+            if (player == null) return null;
+            
+            // Check if player is in a team
+            if (redTeam.Contains(player.userID) || blueTeam.Contains(player.userID) || blackTeam.Contains(player.userID))
+            {
+                // Block item dropping and return item to inventory
+                return false;
+            }
+            return null;
         }
 
         private void SpawnBall()
