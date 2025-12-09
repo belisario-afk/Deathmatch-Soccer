@@ -279,6 +279,19 @@ namespace Oxide.Plugins
 
             if (weaponName == Magnet_GunShortname)
             {
+                // CLEAR BASE GAME PROJECTILES - prevent ammo waste
+                if (projectiles != null && projectiles.projectiles != null)
+                {
+                    projectiles.projectiles.Clear();
+                }
+                
+                // Refund the ammo that was consumed
+                if (heldItem.GetHeldEntity() is BaseProjectile baseProj)
+                {
+                    baseProj.primaryMagazine.contents++;
+                    baseProj.SendNetworkUpdateImmediate();
+                }
+                
                 // Check cooldown for Magnet
                 float lastFired;
                 if (magnetLastFired.TryGetValue(player.userID, out lastFired))
@@ -311,7 +324,23 @@ namespace Oxide.Plugins
                 Vector3 velocity = player.eyes.BodyForward() * Magnet_Speed;
                 SpawnProjectile(spawnPos, velocity, player, Magnet_ItemToDrop, false);
             }
-            else if (weaponName == Tackle_GunShortname) ShootYellowCard(player);
+            else if (weaponName == Tackle_GunShortname)
+            {
+                // CLEAR BASE GAME PROJECTILES - prevent ammo waste
+                if (projectiles != null && projectiles.projectiles != null)
+                {
+                    projectiles.projectiles.Clear();
+                }
+                
+                // Refund the ammo that was consumed
+                if (heldItem.GetHeldEntity() is BaseProjectile baseProj)
+                {
+                    baseProj.primaryMagazine.contents++;
+                    baseProj.SendNetworkUpdateImmediate();
+                }
+                
+                ShootYellowCard(player);
+            }
             else if (weaponName == Phase_GunShortname) ShootPhaseShift(player);
             else if (weaponName == Whistle_GunShortname) ShootWhistle(player);
         }
