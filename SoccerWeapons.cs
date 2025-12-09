@@ -4,6 +4,53 @@ using Rust;
 
 namespace Oxide.Plugins
 {
+    /*
+     * SoccerWeapons - Advanced weapon abilities for Deathmatch Soccer
+     * 
+     * WEAPON ABILITIES:
+     * 
+     * 1. MULTIPLE GRENADE LAUNCHER (MGL) - Medi-Launcher
+     *    - Shoots healing projectiles that restore 50HP + 20 hydration
+     *    - Projectile has reduced gravity and drag
+     *    - Heals on direct hit to players
+     * 
+     * 2. SNOWBALL GUN - Magnet
+     *    - Shoots vacuum projectiles that pull the ball
+     *    - 25m radius vacuum effect on impact
+     *    - Pulls ball with 50 force + 8 upward force
+     * 
+     * 3. NAILGUN PISTOL - Yellow Card
+     *    - Tackles enemy players, wounding them for 3 seconds
+     *    - 100m range, 0.5m beam thickness (SphereCast)
+     *    - 0.5s cooldown between shots (prevents spam with only 6 nails)
+     *    - Only hits players (ignores walls/ground via layer mask)
+     * 
+     * 4. PYTHON REVOLVER - Phase Shift
+     *    - Teleports player to ball location
+     *    - Swaps player and ball positions
+     *    - 100m maximum range
+     * 
+     * 5. CROSSBOW - Whistle
+     *    - Freezes ball mid-air for 2 seconds
+     *    - Ball becomes kinematic (stops all physics)
+     *    - 100m maximum range
+     * 
+     * 6. BASEBALL BAT - Home Run
+     *    - Launches ball with 45 force on melee hit
+     *    - Ball becomes "charged" for 2 seconds (can score on contact)
+     *    - Adds upward arc to trajectory
+     * 
+     * 7. NIGHT VISION GOGGLES - ESP
+     *    - Shows all players through walls with rainbow skeleton
+     *    - 150m radius, updates every 0.1s
+     *    - Displays player name and distance
+     *    - NPCs shown in yellow, players in rainbow
+     * 
+     * CONFIGURATION:
+     * All weapon mechanics are configured via constants at the top of the file.
+     * Adjust these values to balance gameplay:
+     * - Ranges, forces, cooldowns, durations, etc.
+     */
     [Info("SoccerWeapons", "Jess", "11.4.0")]
     [Description("MGL=Heal, Snowball=Magnet, Nailgun=YellowCard (Fixed), Bat=HomeRun, NVG=ESP")]
     public class SoccerWeapons : RustPlugin
@@ -12,25 +59,38 @@ namespace Oxide.Plugins
         // CONFIGURATION
         // ==========================================================================
         
+        // Cooldown tracking for Yellow Card (Nailgun) to prevent spam
+        private Dictionary<ulong, float> tackleLastFired = new Dictionary<ulong, float>();
+        
         // WEAPONS
         private const string Medi_GunShortname = "multiplegrenadelauncher";
         private const string Medi_ItemToDrop = "largemedkit";
         private const float Medi_SpeedMultiplier = 0.5f;
+        private const float Medi_HealAmount = 50f;
+        private const float Medi_HydrationAmount = 20f;
 
         private const string Magnet_GunShortname = "snowballgun"; 
         private const string Magnet_ItemToDrop = "snowball"; 
         private const float Magnet_Speed = 60f; 
+        private const float Magnet_Radius = 25f; // Vacuum radius
+        private const float Magnet_Force = 50f; // Pull force
 
-        private const string Tackle_GunShortname = "nailgun";
+        private const string Tackle_GunShortname = "pistol.nailgun"; // Updated to pistol.nailgun
         private const float Tackle_Duration = 3.0f; 
+        private const float Tackle_Range = 100f; // Maximum range
+        private const float Tackle_Radius = 0.5f; // Spherecast radius (beam thickness)
+        private const float Tackle_Cooldown = 0.5f; // Fire rate cooldown (0.5s between shots)
 
         private const string Phase_GunShortname = "pistol.python";
+        private const float Phase_Range = 100f; // Maximum teleport range
+        
         private const string Whistle_GunShortname = "crossbow";
         private const float Whistle_FreezeTime = 2.0f;
+        private const float Whistle_Range = 100f; // Maximum freeze range
 
         private const string Bat_Shortname = "mace.baseballbat";
         private const float Bat_HitForce = 45f; 
-        private const float Bat_ChargeTime = 2.0f; 
+        private const float Bat_ChargeTime = 2.0f;
 
         // ESP
         private const string Esp_Shortname = "nightvisiongoggles";
@@ -262,15 +322,28 @@ namespace Oxide.Plugins
             SpawnProjectile(startPos, velocity, shooter, Medi_ItemToDrop, true);
         }
 
-        // --- FIXED: Yellow Card now uses a Layer Mask to hit ONLY players ---
+        // --- FIXED: Yellow Card now uses a Layer Mask to hit ONLY players with cooldown prevention ---
         void ShootYellowCard(BasePlayer player)
         {
+            // Check cooldown
+            float lastFired;
+            if (tackleLastFired.TryGetValue(player.userID, out lastFired))
+            {
+                float timeSince = Time.time - lastFired;
+                if (timeSince < Tackle_Cooldown)
+                {
+                    float remaining = Tackle_Cooldown - timeSince;
+                    player.ChatMessage($"<color=#ff0000>Cooldown!</color> Wait {remaining:F1}s before tackling again.");
+                    return;
+                }
+            }
+            
             RaycastHit hit;
             // The mask "Player (Server)" ensures we ignore ground, walls, and invisible barriers
             int layerMask = LayerMask.GetMask("Player (Server)");
 
-            // 0.5m thick beam, 100m range
-            if (!Physics.SphereCast(player.eyes.position, 0.5f, player.eyes.BodyForward(), out hit, 100f, layerMask)) 
+            // SphereCast for beam effect with configurable radius and range
+            if (!Physics.SphereCast(player.eyes.position, Tackle_Radius, player.eyes.BodyForward(), out hit, Tackle_Range, layerMask)) 
             {
                 return;
             }
@@ -281,6 +354,9 @@ namespace Oxide.Plugins
             BasePlayer target = hitEntity as BasePlayer;
             if (target != null && !target.IsWounded() && !target.IsSleeping())
             {
+                // Update cooldown
+                tackleLastFired[player.userID] = Time.time;
+                
                 HitInfo info = new HitInfo();
                 info.Initiator = player;
                 info.WeaponPrefab = player.GetHeldEntity();
@@ -301,7 +377,7 @@ namespace Oxide.Plugins
         void ShootPhaseShift(BasePlayer player)
         {
             RaycastHit hit;
-            if (!Physics.Raycast(player.eyes.HeadRay(), out hit, 100f)) return;
+            if (!Physics.Raycast(player.eyes.HeadRay(), out hit, Phase_Range)) return;
             BaseEntity hitEntity = hit.GetEntity();
             if (hitEntity != null && hitEntity.ShortPrefabName.Contains("ball"))
             {
@@ -321,7 +397,7 @@ namespace Oxide.Plugins
         void ShootWhistle(BasePlayer player)
         {
             RaycastHit hit;
-            if (!Physics.Raycast(player.eyes.HeadRay(), out hit, 100f)) return;
+            if (!Physics.Raycast(player.eyes.HeadRay(), out hit, Whistle_Range)) return;
             BaseEntity hitEntity = hit.GetEntity();
             if (hitEntity != null && hitEntity.ShortPrefabName.Contains("ball"))
             {
@@ -398,7 +474,12 @@ namespace Oxide.Plugins
                 _hasHit = true;
                 Effect.server.Run(HealEffect, transform.position, Vector3.up);
                 Effect.server.Run(HealSound, transform.position, Vector3.up);
-                if (target != null) { target.Heal(50f); target.metabolism.hydration.value += 20; if(Shooter != null && Shooter != target) Shooter.ChatMessage($"<color=#00ff00>Healed {target.displayName}!</color>"); }
+                if (target != null) { 
+                    target.Heal(Medi_HealAmount); 
+                    target.metabolism.hydration.value += Medi_HydrationAmount; 
+                    if(Shooter != null && Shooter != target) 
+                        Shooter.ChatMessage($"<color=#00ff00>Healed {target.displayName} (+{Medi_HealAmount}HP)!</color>"); 
+                }
                 DestroySelf();
             }
             void DestroySelf() { if (_entity != null && !_entity.IsDestroyed) _entity.Kill(); else Destroy(gameObject); }
@@ -422,7 +503,7 @@ namespace Oxide.Plugins
             }
             void PerformVacuum(Vector3 centerPoint) {
                 List<BaseEntity> nearbyEntities = new List<BaseEntity>();
-                Vis.Entities(centerPoint, 25f, nearbyEntities); 
+                Vis.Entities(centerPoint, Magnet_Radius, nearbyEntities); 
                 foreach (var entity in nearbyEntities) {
                     if (!entity.ShortPrefabName.Contains("ball")) continue;
                     if (entity is BasePlayer) continue;
@@ -430,7 +511,7 @@ namespace Oxide.Plugins
                     if (rb == null) continue;
                     if (rb.IsSleeping()) rb.WakeUp();
                     Vector3 directionToCenter = centerPoint - entity.transform.position;
-                    Vector3 forceVector = directionToCenter.normalized * 50f; 
+                    Vector3 forceVector = directionToCenter.normalized * Magnet_Force; 
                     forceVector += Vector3.up * 8.0f; 
                     rb.velocity = Vector3.zero; 
                     rb.angularVelocity = Vector3.zero;

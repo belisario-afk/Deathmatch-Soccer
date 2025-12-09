@@ -2323,8 +2323,8 @@ namespace Oxide.Plugins
             // Check if player is in a team
             if (redTeam.Contains(player.userID) || blueTeam.Contains(player.userID) || blackTeam.Contains(player.userID))
             {
-                // Block item dropping
-                return false;
+                // Block item dropping - return true to prevent action
+                return true;
             }
             return null;
         }
@@ -2337,8 +2337,15 @@ namespace Oxide.Plugins
             // Check if player is in a team
             if (redTeam.Contains(player.userID) || blueTeam.Contains(player.userID) || blackTeam.Contains(player.userID))
             {
-                // Block item dropping and return item to inventory
-                return false;
+                // Block item dropping - return true to prevent action
+                NextTick(() => {
+                    // Return item to player if it was dropped
+                    if (item != null && player != null && player.IsConnected)
+                    {
+                        player.GiveItem(item);
+                    }
+                });
+                return true;
             }
             return null;
         }
