@@ -203,6 +203,9 @@ namespace Oxide.Plugins
         private List<ulong> blackTeam = new List<ulong>();
         private Dictionary<ulong, string> playerRoles = new Dictionary<ulong, string>();
         
+        // HOST SYSTEM
+        private ulong hostPlayerId = 0; // Track current host
+        
         // TEAM CONFIG CLASS
         private class TeamConfig
         {
@@ -2343,23 +2346,24 @@ namespace Oxide.Plugins
             return null;
         }
         
-        // Also block dropping via right-click menu
+        // Block ALL item dropping methods (drag outside, right-click, etc.)
         object OnItemDropped(Item item, BasePlayer player)
         {
-            if (player == null) return null;
+            if (player == null || item == null) return null;
             
             // Check if player is in a team
             if (redTeam.Contains(player.userID) || blueTeam.Contains(player.userID) || blackTeam.Contains(player.userID))
             {
-                // Block item dropping - return true to prevent action
+                // Return false to block the drop AND recover the item
                 NextTick(() => {
                     // Return item to player if it was dropped
                     if (item != null && player != null && player.IsConnected)
                     {
+                        // Give item back to player's inventory
                         player.GiveItem(item);
                     }
                 });
-                return true;
+                return false; // Return false to prevent the drop action
             }
             return null;
         }

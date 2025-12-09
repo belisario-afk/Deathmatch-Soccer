@@ -64,6 +64,10 @@ namespace Oxide.Plugins
         private Dictionary<ulong, float> tackleLastFired = new Dictionary<ulong, float>(); // Yellow Card (Nailgun)
         private Dictionary<ulong, float> magnetLastFired = new Dictionary<ulong, float>(); // Magnet (Snowball)
         
+        // Track whether we've shown cooldown message to prevent spam
+        private Dictionary<ulong, bool> tackleCooldownMessageShown = new Dictionary<ulong, bool>();
+        private Dictionary<ulong, bool> magnetCooldownMessageShown = new Dictionary<ulong, bool>();
+        
         // WEAPONS
         private const string Medi_GunShortname = "multiplegrenadelauncher";
         private const string Medi_ItemToDrop = "largemedkit";
@@ -246,6 +250,25 @@ namespace Oxide.Plugins
         // ==========================================================================
         // HOOKS
         // ==========================================================================
+        
+        // Block base game projectile firing for snowballgun and nailgun
+        // This prevents wasting ammo on projectiles that do nothing
+        object OnPlayerAttack(BasePlayer player, HitInfo info)
+        {
+            if (player == null) return null;
+            Item heldItem = player.GetActiveItem();
+            if (heldItem == null) return null;
+            string weaponName = heldItem.info.shortname;
+            
+            // Block base projectile firing for ability weapons
+            if (weaponName == Magnet_GunShortname || weaponName == Tackle_GunShortname)
+            {
+                // Return false to prevent the attack/ammo consumption
+                return false;
+            }
+            
+            return null;
+        }
 
         void OnWeaponFired(BaseProjectile projectile, BasePlayer player, ItemModProjectile mod, ProtoBuf.ProjectileShoot projectiles)
         {
@@ -263,14 +286,26 @@ namespace Oxide.Plugins
                     float timeSince = Time.time - lastFired;
                     if (timeSince < Magnet_Cooldown)
                     {
-                        float remaining = Magnet_Cooldown - timeSince;
-                        player.ChatMessage($"<color=#00ffff>Cooldown!</color> Wait {remaining:F1}s before using Magnet again.");
+                        // Only show message once per cooldown period
+                        bool messageShown;
+                        if (!magnetCooldownMessageShown.TryGetValue(player.userID, out messageShown) || !messageShown)
+                        {
+                            float remaining = Magnet_Cooldown - timeSince;
+                            player.ChatMessage($"<color=#00ffff>Cooldown!</color> Wait {remaining:F1}s before using Magnet again.");
+                            magnetCooldownMessageShown[player.userID] = true;
+                        }
                         return; // PREVENT the gun from firing during cooldown
+                    }
+                    else
+                    {
+                        // Cooldown expired, clear message flag
+                        magnetCooldownMessageShown[player.userID] = false;
                     }
                 }
                 
                 // Update cooldown
                 magnetLastFired[player.userID] = Time.time;
+                magnetCooldownMessageShown[player.userID] = false; // Reset message flag
                 
                 Vector3 spawnPos = player.eyes.position + (player.eyes.BodyForward() * 1.5f);
                 Vector3 velocity = player.eyes.BodyForward() * Magnet_Speed;
@@ -351,9 +386,20 @@ namespace Oxide.Plugins
                 float timeSince = Time.time - lastFired;
                 if (timeSince < Tackle_Cooldown)
                 {
-                    float remaining = Tackle_Cooldown - timeSince;
-                    player.ChatMessage($"<color=#ff0000>Cooldown!</color> Wait {remaining:F1}s before tackling again.");
+                    // Only show message once per cooldown period
+                    bool messageShown;
+                    if (!tackleCooldownMessageShown.TryGetValue(player.userID, out messageShown) || !messageShown)
+                    {
+                        float remaining = Tackle_Cooldown - timeSince;
+                        player.ChatMessage($"<color=#ff0000>Cooldown!</color> Wait {remaining:F1}s before tackling again.");
+                        tackleCooldownMessageShown[player.userID] = true;
+                    }
                     return;
+                }
+                else
+                {
+                    // Cooldown expired, clear message flag
+                    tackleCooldownMessageShown[player.userID] = false;
                 }
             }
             
@@ -375,6 +421,7 @@ namespace Oxide.Plugins
             {
                 // Update cooldown
                 tackleLastFired[player.userID] = Time.time;
+                tackleCooldownMessageShown[player.userID] = false; // Reset message flag
                 
                 HitInfo info = new HitInfo();
                 info.Initiator = player;
