@@ -16,9 +16,13 @@ namespace Oxide.Plugins
      * FEATURES:
      * - 3-Team System: Blue (SHELL-SEA/GRUB), Red (Loot-pool/DOORCAMPER), Black (PZG/ROAMER)
      * - Goal Swapping Rotation: 2 teams play, losing team's goal is replaced by waiting team's goal
-     * - Custom Skins: Each team can have unique skins via Skins.cs plugin
-     * - Modern UI: Team selection menu, dynamic scoreboard, role selection
-     * - 2 Roles: Striker (100HP, Thompson) and Goalie (200HP, SPAS-12)
+     * - Team Attire: Hazmat suits (Red: outbreak_scientist, Black: hazmatsuit_scientist_nvgm, Blue: hazmat.krieg)
+     * - Modern UI: Team selection menu, dynamic scoreboard, 4-role selection
+     * - 4 Roles with SoccerWeapons.cs Integration:
+     *   • Striker (100HP): Bat (Home Run) + Python (Phase Shift)
+     *   • Playmaker (125HP): Snowball Gun (Magnet) + Crossbow (Whistle)
+     *   • Enforcer (150HP): Nailgun (Yellow Card) + Bat (Home Run)
+     *   • Goalie (200HP): MGL (Medi-Launcher) + SPAS-12 + NVG (ESP)
      * - Active Goal System: Only active goals count for scoring
      * 
      * ROTATION SYSTEM:
@@ -42,10 +46,11 @@ namespace Oxide.Plugins
      * PLAYER COMMANDS:
      * /join [team] - Join a team (shows UI if no team specified)
      * /teams - Show team selection UI
-     * Use /join command - Shows team selection UI (reminders appear during lobby)
+     * /leave - Leave team and return to lobby
+     * /help, /commands - Show help menu
      */
-    [Info("DeathmatchSoccer", "KillaDome", "5.4.0")]
-    [Description("3-Team Soccer with Lobby System and Celebrations")]
+    [Info("DeathmatchSoccer", "KillaDome", "6.0.0")]
+    [Description("3-Team Soccer with 4-Role System and SoccerWeapons Integration")]
     public class DeathmatchSoccer : RustPlugin
     {
         // ==========================================
@@ -852,12 +857,23 @@ namespace Oxide.Plugins
 
         private void CheckRole(BasePlayer player, string team)
         {
-            int goalies = 0;
+            // Count existing roles in the team
+            int goalies = 0, strikers = 0, playmakers = 0, enforcers = 0;
             List<ulong> list = (team == "red") ? redTeam : (team == "blue") ? blueTeam : blackTeam;
-            foreach(ulong id in list) if(playerRoles.ContainsKey(id) && playerRoles[id] == "Goalie") goalies++;
+            
+            foreach(ulong id in list)
+            {
+                if(!playerRoles.ContainsKey(id)) continue;
+                string role = playerRoles[id];
+                if(role == "Goalie") goalies++;
+                else if(role == "Striker") strikers++;
+                else if(role == "Playmaker") playmakers++;
+                else if(role == "Enforcer") enforcers++;
+            }
 
-            if(goalies == 0) ShowRoleUI(player, team);
-            else AssignRole(player, "Striker");
+            // Always show UI to let player choose their preferred role
+            // This gives full flexibility for team composition
+            ShowRoleUI(player, team);
         }
 
         [ConsoleCommand("select_role")]
@@ -1222,31 +1238,64 @@ namespace Oxide.Plugins
                          blueTeam.Contains(player.userID) ? "blue" : "black";
             TeamSkins skins = teamSkins[team];
             
+            // Team-specific hazmat suit
+            string hazmatSuit = team == "red" ? "hazmat.suit.scientist" :  // outbreak_scientist
+                               team == "black" ? "hazmat.suit.scientist.nvgm" : // hazmatsuit_scientist_nvgm  
+                               "hazmat.krieg"; // blue team
+            
+            // Give team hazmat suit to all roles
+            GiveItemWithSkin(player, hazmatSuit, 1, 0, player.inventory.containerWear);
+            
+            // Role-specific loadouts with SoccerWeapons.cs integration
             if (role == "Striker") 
             {
-                // Striker Kit (All positions except Goalie)
-                GiveItemWithSkin(player, "tshirt", 1, skins.TshirtSkin, player.inventory.containerWear);
-                GiveItemWithSkin(player, "pants", 1, skins.PantsSkin, player.inventory.containerWear);
-                GiveItemWithSkin(player, "metal.plate.torso", 1, skins.TorsoSkin, player.inventory.containerWear);
-                GiveItemWithSkin(player, "metal.facemask", 1, skins.FacemaskSkin, player.inventory.containerWear);
-                GiveItemWithSkin(player, "burlap.shoes", 1, skins.ShoesSkin, player.inventory.containerWear);
-                GiveItemWithSkin(player, "smg.thompson", 1, skins.WeaponSkin, player.inventory.containerBelt);
-                player.inventory.GiveItem(ItemManager.CreateByName("syringe.medical", 5), player.inventory.containerMain);
-                player.inventory.GiveItem(ItemManager.CreateByName("barricade.wood.cover", 3), player.inventory.containerMain);
+                // Striker (Scorer): Speed, Scoring, Juking
+                // Primary: Baseball Bat (Home Run - hits ball)
+                // Secondary: Python (Phase Shift - teleport to ball)
+                GiveItemWithSkin(player, "mace.baseballbat", 1, 0, player.inventory.containerBelt);
+                GiveItemWithSkin(player, "pistol.python", 1, 0, player.inventory.containerBelt);
                 player.inventory.GiveItem(ItemManager.CreateByName("ammo.pistol", 200), player.inventory.containerMain);
+                player.inventory.GiveItem(ItemManager.CreateByName("syringe.medical", 5), player.inventory.containerMain);
                 player.SetMaxHealth(100); 
                 player.health = 100;
             } 
+            else if (role == "Playmaker")
+            {
+                // Playmaker (Midfield): Ball Control, Passing, Setups
+                // Primary: Snowball Gun (Magnet - pulls ball)
+                // Secondary: Crossbow (Whistle - freezes ball)
+                GiveItemWithSkin(player, "snowballgun", 1, 0, player.inventory.containerBelt);
+                GiveItemWithSkin(player, "crossbow", 1, 0, player.inventory.containerBelt);
+                player.inventory.GiveItem(ItemManager.CreateByName("snowball", 100), player.inventory.containerMain);
+                player.inventory.GiveItem(ItemManager.CreateByName("arrow.wooden", 64), player.inventory.containerMain);
+                player.inventory.GiveItem(ItemManager.CreateByName("syringe.medical", 5), player.inventory.containerMain);
+                player.SetMaxHealth(125); 
+                player.health = 125;
+            }
+            else if (role == "Enforcer")
+            {
+                // Enforcer (Defender): Tackling, Blocking, Clearing
+                // Primary: Nailgun (Yellow Card - tackles players)
+                // Secondary: Baseball Bat (Home Run - clears ball)
+                GiveItemWithSkin(player, "nailgun", 1, 0, player.inventory.containerBelt);
+                GiveItemWithSkin(player, "mace.baseballbat", 1, 0, player.inventory.containerBelt);
+                player.inventory.GiveItem(ItemManager.CreateByName("ammo.nailgun.nails", 200), player.inventory.containerMain);
+                player.inventory.GiveItem(ItemManager.CreateByName("syringe.medical", 7), player.inventory.containerMain);
+                player.SetMaxHealth(150); 
+                player.health = 150;
+            }
             else // Goalie
             {
-                GiveItemWithSkin(player, "tshirt", 1, skins.TshirtSkin, player.inventory.containerWear);
-                GiveItemWithSkin(player, "heavy.plate.pants", 1, skins.GoaliePantsSkin, player.inventory.containerWear);
-                GiveItemWithSkin(player, "heavy.plate.jacket", 1, skins.GoalieJacketSkin, player.inventory.containerWear);
-                GiveItemWithSkin(player, "metal.facemask", 1, skins.FacemaskSkin, player.inventory.containerWear);
-                GiveItemWithSkin(player, "burlap.shoes", 1, skins.ShoesSkin, player.inventory.containerWear);
-                GiveItemWithSkin(player, "shotgun.spas12", 1, skins.GoalieWeaponSkin, player.inventory.containerBelt);
-                player.inventory.GiveItem(ItemManager.CreateByName("syringe.medical", 10), player.inventory.containerMain);
+                // Goalie (Support): Saving Goals, Healing Team
+                // Primary: MGL (Medi-Launcher - heals teammates)
+                // Secondary: SPAS-12 (standard shooting)
+                // Wear: Night Vision Goggles (ESP - see players)
+                GiveItemWithSkin(player, "multiplegrenadelauncher", 1, 0, player.inventory.containerBelt);
+                GiveItemWithSkin(player, "shotgun.spas12", 1, 0, player.inventory.containerBelt);
+                GiveItemWithSkin(player, "nightvisiongoggles", 1, 0, player.inventory.containerWear);
+                player.inventory.GiveItem(ItemManager.CreateByName("ammo.grenadelauncher.he", 12), player.inventory.containerMain);
                 player.inventory.GiveItem(ItemManager.CreateByName("ammo.shotgun", 64), player.inventory.containerMain);
+                player.inventory.GiveItem(ItemManager.CreateByName("syringe.medical", 10), player.inventory.containerMain);
                 player.SetMaxHealth(200); 
                 player.health = 200;
             }
@@ -1544,11 +1593,37 @@ namespace Oxide.Plugins
             CuiHelper.DestroyUi(player, "RoleSelectUI");
             var c = new CuiElementContainer();
             var config = teamConfigs[team];
-            string p = c.Add(new CuiPanel { Image = { Color = "0 0 0 0.9" }, RectTransform = { AnchorMin = "0.3 0.3", AnchorMax = "0.7 0.7" }, CursorEnabled = true }, "Overlay", "RoleSelectUI");
-            c.Add(new CuiLabel { Text = { Text = $"CHOOSE ROLE - {config.Name}", FontSize = 18, Align = TextAnchor.MiddleCenter, Color = config.Color + " 1" }, RectTransform = { AnchorMin = "0 0.8", AnchorMax = "1 1" } }, p);
-            c.Add(new CuiLabel { Text = { Text = $"({config.Tag})", FontSize = 14, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.6" }, RectTransform = { AnchorMin = "0 0.7", AnchorMax = "1 0.8" } }, p);
-            c.Add(new CuiButton { Button = { Command = "select_role Striker", Color = "0.2 0.6 0.2 1" }, Text = { Text = "STRIKER", FontSize = 16, Align = TextAnchor.MiddleCenter }, RectTransform = { AnchorMin = "0.1 0.2", AnchorMax = "0.45 0.6" } }, p);
-            c.Add(new CuiButton { Button = { Command = "select_role Goalie", Color = "0.8 0.4 0.1 1" }, Text = { Text = "GOALIE", FontSize = 16, Align = TextAnchor.MiddleCenter }, RectTransform = { AnchorMin = "0.55 0.2", AnchorMax = "0.9 0.6" } }, p);
+            string p = c.Add(new CuiPanel { Image = { Color = "0 0 0 0.9" }, RectTransform = { AnchorMin = "0.25 0.2", AnchorMax = "0.75 0.8" }, CursorEnabled = true }, "Overlay", "RoleSelectUI");
+            
+            // Title
+            c.Add(new CuiLabel { Text = { Text = $"CHOOSE ROLE - {config.Name}", FontSize = 20, Align = TextAnchor.MiddleCenter, Color = config.Color + " 1", Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0 0.88", AnchorMax = "1 0.98" } }, p);
+            c.Add(new CuiLabel { Text = { Text = $"({config.Tag})", FontSize = 14, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.6" }, RectTransform = { AnchorMin = "0 0.80", AnchorMax = "1 0.88" } }, p);
+            
+            // Row 1: Striker and Playmaker
+            // Striker - Green (Speed & Scoring)
+            string strikerBtn = c.Add(new CuiButton { Button = { Command = "select_role Striker", Color = "0.2 0.6 0.2 0.9" }, Text = { Text = "STRIKER", FontSize = 16, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.05 0.52", AnchorMax = "0.48 0.75" } }, p);
+            c.Add(new CuiLabel { Text = { Text = "⚡ Speed & Scoring", FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.8" }, RectTransform = { AnchorMin = "0 0.05", AnchorMax = "1 0.25" } }, strikerBtn);
+            c.Add(new CuiLabel { Text = { Text = "Bat • Python", FontSize = 10, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.6" }, RectTransform = { AnchorMin = "0 0.7", AnchorMax = "1 0.95" } }, strikerBtn);
+            
+            // Playmaker - Blue (Ball Control)
+            string playmakerBtn = c.Add(new CuiButton { Button = { Command = "select_role Playmaker", Color = "0.2 0.4 0.8 0.9" }, Text = { Text = "PLAYMAKER", FontSize = 16, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.52 0.52", AnchorMax = "0.95 0.75" } }, p);
+            c.Add(new CuiLabel { Text = { Text = "🎯 Ball Control", FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.8" }, RectTransform = { AnchorMin = "0 0.05", AnchorMax = "1 0.25" } }, playmakerBtn);
+            c.Add(new CuiLabel { Text = { Text = "Snowball • Crossbow", FontSize = 10, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.6" }, RectTransform = { AnchorMin = "0 0.7", AnchorMax = "1 0.95" } }, playmakerBtn);
+            
+            // Row 2: Enforcer and Goalie
+            // Enforcer - Purple (Defending)
+            string enforcerBtn = c.Add(new CuiButton { Button = { Command = "select_role Enforcer", Color = "0.6 0.2 0.6 0.9" }, Text = { Text = "ENFORCER", FontSize = 16, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.05 0.25", AnchorMax = "0.48 0.48" } }, p);
+            c.Add(new CuiLabel { Text = { Text = "🛡️ Tackling & Defense", FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.8" }, RectTransform = { AnchorMin = "0 0.05", AnchorMax = "1 0.25" } }, enforcerBtn);
+            c.Add(new CuiLabel { Text = { Text = "Nailgun • Bat", FontSize = 10, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.6" }, RectTransform = { AnchorMin = "0 0.7", AnchorMax = "1 0.95" } }, enforcerBtn);
+            
+            // Goalie - Orange (Support)
+            string goalieBtn = c.Add(new CuiButton { Button = { Command = "select_role Goalie", Color = "0.8 0.4 0.1 0.9" }, Text = { Text = "GOALIE", FontSize = 16, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.52 0.25", AnchorMax = "0.95 0.48" } }, p);
+            c.Add(new CuiLabel { Text = { Text = "💊 Support & Healing", FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.8" }, RectTransform = { AnchorMin = "0 0.05", AnchorMax = "1 0.25" } }, goalieBtn);
+            c.Add(new CuiLabel { Text = { Text = "MGL • SPAS-12 • NVG", FontSize = 10, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.6" }, RectTransform = { AnchorMin = "0 0.7", AnchorMax = "1 0.95" } }, goalieBtn);
+            
+            // Instructions
+            c.Add(new CuiLabel { Text = { Text = "Select your role to begin!", FontSize = 13, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.7" }, RectTransform = { AnchorMin = "0 0.08", AnchorMax = "1 0.20" } }, p);
+            
             CuiHelper.AddUi(player, c);
         }
 
