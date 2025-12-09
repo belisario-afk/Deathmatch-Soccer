@@ -19,9 +19,9 @@ namespace Oxide.Plugins
      * - Team Attire: Hazmat suits for field players (Red/Black/Blue), Heavy Armor for Goalies
      * - Modern UI: Team selection menu, dynamic scoreboard, 4-role selection
      * - 4 Roles with SoccerWeapons.cs Integration:
-     *   • Striker (100HP): Bat (Home Run) + Nailgun Pistol (Phase Shift) + 3 Barricades
+     *   • Striker (100HP): Bat (Home Run) + Python Revolver (Phase Shift) + 3 Barricades
      *   • Playmaker (125HP): Snowball Gun (Magnet) + Crossbow (Whistle) + 3 Barricades
-     *   • Enforcer (150HP): Nailgun (Yellow Card) + Bat (Home Run) + 3 Barricades
+     *   • Enforcer (150HP): Nailgun Pistol (Yellow Card) + Bat (Home Run) + 3 Barricades
      *   • Goalie (200HP): Heavy Armor + MGL (Medi-Launcher) + SPAS-12 + NVG (ESP) + 3 Barricades
      * - Active Goal System: Only active goals count for scoring
      * 
@@ -1239,9 +1239,9 @@ namespace Oxide.Plugins
             TeamSkins skins = teamSkins[team];
             
             // Team-specific hazmat suit (NOT for goalies - they get armor)
-            string hazmatSuit = team == "red" ? "hazmat.suit" :  // outbreak_scientist (red hazmat)
-                               team == "black" ? "hazmat.suit" : // hazmatsuit_scientist_nvgm (black hazmat with NVG)
-                               "hazmat.suit"; // blue team (krieg hazmat)
+            string hazmatSuit = team == "red" ? "oubreak_scientist" :  // outbreak_scientist (red hazmat)
+                               team == "black" ? "hazmatsuit_scientist_nvgm" : // hazmatsuit_scientist_nvgm (black hazmat with NVG)
+                               "hazmat.krieg"; // blue team (krieg hazmat)
             
             // Give team hazmat suit to non-goalie roles
             if (role != "Goalie")
@@ -1254,10 +1254,10 @@ namespace Oxide.Plugins
             {
                 // Striker (Scorer): Speed, Scoring, Juking
                 // Primary: Baseball Bat (Home Run - hits ball)
-                // Secondary: Nailgun Pistol (Phase Shift - teleport to ball)
+                // Secondary: Python Revolver (Phase Shift - teleport to ball)
                 GiveItemWithSkin(player, "mace.baseballbat", 1, 0, player.inventory.containerBelt);
-                GiveItemWithSkin(player, "pistol.nailgun", 1, 0, player.inventory.containerBelt);
-                player.inventory.GiveItem(ItemManager.CreateByName("ammo.nailgun.nails", 200), player.inventory.containerMain);
+                GiveItemWithSkin(player, "pistol.python", 1, 0, player.inventory.containerBelt);
+                player.inventory.GiveItem(ItemManager.CreateByName("ammo.pistol", 200), player.inventory.containerMain);
                 player.inventory.GiveItem(ItemManager.CreateByName("syringe.medical", 5), player.inventory.containerMain);
                 // Add 3 wooden barricades
                 player.inventory.GiveItem(ItemManager.CreateByName("barricade.wood.cover", 3), player.inventory.containerMain);
@@ -1282,9 +1282,9 @@ namespace Oxide.Plugins
             else if (role == "Enforcer")
             {
                 // Enforcer (Defender): Tackling, Blocking, Clearing
-                // Primary: Nailgun (Yellow Card - tackles players)
+                // Primary: Nailgun Pistol (Yellow Card - tackles players)
                 // Secondary: Baseball Bat (Home Run - clears ball)
-                GiveItemWithSkin(player, "gun.nailgun", 1, 0, player.inventory.containerBelt);
+                GiveItemWithSkin(player, "pistol.nailgun", 1, 0, player.inventory.containerBelt);
                 GiveItemWithSkin(player, "mace.baseballbat", 1, 0, player.inventory.containerBelt);
                 player.inventory.GiveItem(ItemManager.CreateByName("ammo.nailgun.nails", 200), player.inventory.containerMain);
                 player.inventory.GiveItem(ItemManager.CreateByName("syringe.medical", 7), player.inventory.containerMain);
