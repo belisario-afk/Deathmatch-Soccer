@@ -1251,6 +1251,13 @@ namespace Oxide.Plugins
                 player.health = 200;
             }
             
+            // Try using Skins plugin if available for better skin loading
+            if (Skins != null)
+            {
+                Puts($"[Skins] Using Skins plugin to refresh skins for {player.displayName}");
+                Skins.Call("RefreshPlayer", player);
+            }
+            
             // Force multiple network updates to ensure skins load properly
             // Update each container individually
             player.inventory.containerWear.MarkDirty();
@@ -1263,36 +1270,73 @@ namespace Oxide.Plugins
             // Send immediate network update
             player.SendNetworkUpdateImmediate();
             
-            // Additional delayed update to ensure visibility
-            NextTick(() => {
+            // Force client to re-render items with staggered updates
+            timer.Once(0.1f, () => {
                 if (player != null && player.IsConnected)
                 {
                     player.SendNetworkUpdate();
+                    
+                    // Force each worn item to update
+                    foreach (var item in player.inventory.containerWear.itemList)
+                    {
+                        item.MarkDirty();
+                    }
+                    foreach (var item in player.inventory.containerBelt.itemList)
+                    {
+                        item.MarkDirty();
+                    }
+                }
+            });
+            
+            // Additional delayed update to ensure visibility
+            timer.Once(0.5f, () => {
+                if (player != null && player.IsConnected)
+                {
+                    player.SendNetworkUpdate();
+                    player.SendNetworkUpdateImmediate();
+                    
+                    Puts($"[Skins] Final network update sent for {player.displayName}");
                 }
             });
         }
         
         private void GiveItemWithSkin(BasePlayer player, string itemName, int amount, ulong skinId, ItemContainer container)
         {
+            // Log the attempt
+            Puts($"[GiveItemWithSkin] Creating {itemName} with skin {skinId} for {player.displayName}");
+            
             Item item = ItemManager.CreateByName(itemName, amount, skinId);
             if (item != null)
             {
-                // Explicitly set skin ID
+                // Explicitly set skin ID multiple times to ensure it sticks
                 item.skin = skinId;
+                
+                // Log success
+                Puts($"[GiveItemWithSkin] Item created successfully, skin ID: {item.skin}");
                 
                 // Add item to inventory
                 if (player.inventory.GiveItem(item, container))
                 {
+                    // Set skin again after adding to inventory
+                    item.skin = skinId;
+                    
                     // Mark item as dirty to force network update
                     item.MarkDirty();
                     
                     // Force container update
                     container.MarkDirty();
+                    
+                    Puts($"[GiveItemWithSkin] Item added to inventory, final skin ID: {item.skin}");
+                }
+                else
+                {
+                    Puts($"[GiveItemWithSkin] WARNING: Failed to add item to inventory for {player.displayName}");
+                    item.Remove();
                 }
             }
             else
             {
-                Puts($"ERROR: Failed to create item '{itemName}' for player {player.displayName}");
+                Puts($"[GiveItemWithSkin] ERROR: Failed to create item '{itemName}' for player {player.displayName}");
             }
         }
 
