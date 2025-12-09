@@ -1442,8 +1442,20 @@ namespace Oxide.Plugins
                 }
 
                 // GOALIE LEASH
+                // Skip leash check for waiting team goalies (they're not currently playing)
                 if (role == "Goalie")
                 {
+                    // Determine which team the player is on
+                    string playerTeam = isRed ? "red" : isBlue ? "blue" : isBlack ? "black" : "";
+                    
+                    // Skip leash check if this goalie is on the waiting team
+                    // Waiting team players are "active" in match but not their turn to play
+                    if (playerTeam == waitingTeam)
+                    {
+                        // No leash enforcement for waiting team - they can't return to goals that aren't in play
+                        continue;
+                    }
+                    
                     Vector3 home;
                     if (isRed)
                     {
