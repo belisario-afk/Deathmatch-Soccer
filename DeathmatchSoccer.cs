@@ -1408,7 +1408,7 @@ namespace Oxide.Plugins
                 
                 // Fade effect based on age
                 float age = UnityEngine.Time.time - entry.Timestamp;
-                float alpha = Mathf.Clamp(1f - (age / 10f), 0.3f, 1f);
+                float alpha = Mathf.Clamp(1f - (age / 15f), 0.85f, 1f); // Increased min alpha from 0.3 to 0.85, increased fade time
                 
                 // Get team colors - handle empty team strings
                 string killerColor = "#FFFFFF"; // Default white
@@ -1424,21 +1424,25 @@ namespace Oxide.Plugins
                     victimColor = teamConfigs[entry.VictimTeam].HexColor;
                 }
                 
+                // Replace dark colors (black team #333333) with bright visible colors
+                if (killerColor == "#333333") killerColor = "#FFD700"; // Gold for black team
+                if (victimColor == "#333333") victimColor = "#FFD700"; // Gold for black team
+                
                 Puts($"[KillFeed] Colors - Killer: {killerColor}, Victim: {victimColor}");
                 
-                // Background panel - taller to fit message better
+                // Background panel - lighter for better contrast (0.55 instead of 0.1)
                 container.Add(new CuiPanel
                 {
-                    Image = { Color = $"0.1 0.1 0.1 {0.8f * alpha}" },
+                    Image = { Color = $"0.55 0.55 0.55 {0.98f * alpha}" }, // Much lighter background with higher opacity
                     RectTransform = { AnchorMin = "0.01 " + (yPos - index * 0.06f - 0.055f), AnchorMax = "0.40 " + (yPos - index * 0.06f) }
                 }, "KillFeedContainer", $"KillFeed_{index}");
                 
-                // Killer name (team colored) - top section
+                // Killer name (team colored) - top section, larger font
                 container.Add(new CuiLabel
                 {
                     Text = { 
                         Text = entry.KillerName, 
-                        FontSize = 13, 
+                        FontSize = 18, // Increased from 13 to 18
                         Align = TextAnchor.MiddleLeft,
                         Color = $"{GetColorFromHex(killerColor)} {alpha}",
                         Font = "robotocondensed-bold.ttf"
@@ -1451,20 +1455,20 @@ namespace Oxide.Plugins
                 {
                     Text = { 
                         Text = entry.Message, 
-                        FontSize = 11, 
+                        FontSize = 16, // Increased from 11 to 16
                         Align = TextAnchor.MiddleCenter,
-                        Color = $"1 1 1 {alpha}",
+                        Color = $"1 1 1 {alpha}", // Pure white for maximum visibility
                         Font = "robotocondensed-regular.ttf"
                     },
                     RectTransform = { AnchorMin = "0.02 0.30", AnchorMax = "0.98 0.55" }
                 }, $"KillFeed_{index}");
                 
-                // Victim name (team colored) - bottom section  
+                // Victim name (team colored) - bottom section, larger font
                 container.Add(new CuiLabel
                 {
                     Text = { 
                         Text = entry.VictimName, 
-                        FontSize = 13, 
+                        FontSize = 18, // Increased from 13 to 18
                         Align = TextAnchor.MiddleRight,
                         Color = $"{GetColorFromHex(victimColor)} {alpha}",
                         Font = "robotocondensed-bold.ttf"
