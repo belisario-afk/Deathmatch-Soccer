@@ -152,6 +152,9 @@ namespace Oxide.Plugins
         private bool matchActive = false; // Tracks if a match is currently active
         private bool debugActive = false;
         
+        // Ball scaling (1.0 = normal, 0.5 = half size, 2.0 = double size)
+        private float ballScale = 1.0f; // Configure ball size here (recommended range: 0.5 - 3.0)
+        
         // ROTATION SYSTEM - Goal Swapping (2 play, 1 waits)
         private bool rotationMode = true; // Enable rotation by default
         private string waitingTeam = "black"; // Team waiting for next match
@@ -2234,7 +2237,12 @@ namespace Oxide.Plugins
             {
                 if (player == null || !player.IsConnected) continue;
                 
-                var team = GetPlayerTeam(player);
+                // Determine player's team
+                string team = "none";
+                if (redTeam.Contains(player.userID)) team = "red";
+                else if (blueTeam.Contains(player.userID)) team = "blue";
+                else if (blackTeam.Contains(player.userID)) team = "black";
+                
                 if (team == "none") continue; // Only give to team players
                 
                 Puts($"[DistributeBonusWeapon] Giving {votedWeapon} to {player.displayName}");
@@ -3000,6 +3008,10 @@ namespace Oxide.Plugins
             if (activeBall == null) { prefab = "assets/prefabs/misc/soccerball/soccerball.prefab"; activeBall = GameManager.server.CreateEntity(prefab, centerPos + new Vector3(0, 1, 0)); }
             if (activeBall == null) return;
             activeBall.Spawn();
+            
+            // Apply ball scaling (network synchronized to all players)
+            activeBall.transform.localScale = new Vector3(ballScale, ballScale, ballScale);
+            activeBall.SendNetworkUpdate();
             
             Rigidbody rb = activeBall.GetComponent<Rigidbody>();
             if (rb != null) 
