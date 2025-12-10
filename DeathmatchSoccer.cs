@@ -66,6 +66,9 @@ namespace Oxide.Plugins
         private float LeashRadius = 15.0f;     
         private int ScoreToWin = 5;
         
+        // GAME MODE: "soccer" = SoccerWeapons abilities, "normal" = custom skins + voted weapons only
+        private string gameMode = "soccer";
+        
         // GOAL BOX (Overwritten by LoadData)
         private float GoalWidth = 8.0f;
         private float GoalHeight = 4.0f;
@@ -1480,19 +1483,77 @@ namespace Oxide.Plugins
                          blueTeam.Contains(player.userID) ? "blue" : "black";
             TeamSkins skins = teamSkins[team];
             
-            // Team-specific hazmat suit (NOT for goalies - they get armor)
-            string hazmatSuit = team == "red" ? "oubreak_scientist" :  // outbreak_scientist (red hazmat)
-                               team == "black" ? "hazmatsuit_scientist_nvgm" : // hazmatsuit_scientist_nvgm (black hazmat with NVG)
-                               "hazmat.krieg"; // blue team (krieg hazmat)
-            
-            // Give team hazmat suit to non-goalie roles
-            if (role != "Goalie")
+            // ==========================================
+            // NORMAL MODE: Custom skins + voted weapons only
+            // ==========================================
+            if (gameMode == "normal")
             {
-                GiveItemWithSkin(player, hazmatSuit, 1, 0, player.inventory.containerWear);
+                // Non-goalie roles get custom skinned attire
+                if (role != "Goalie")
+                {
+                    // Give custom skinned attire
+                    GiveItemWithSkin(player, "tshirt.long", 1, skins.TshirtSkin, player.inventory.containerWear);
+                    GiveItemWithSkin(player, "pants", 1, skins.PantsSkin, player.inventory.containerWear);
+                    GiveItemWithSkin(player, "metal.plate.torso", 1, skins.TorsoSkin, player.inventory.containerWear);
+                    GiveItemWithSkin(player, "metal.facemask", 1, skins.FacemaskSkin, player.inventory.containerWear);
+                    GiveItemWithSkin(player, "burlap.shoes", 1, skins.ShoesSkin, player.inventory.containerWear);
+                    
+                    // Give medical supplies and barricades (no weapons - only voted weapon)
+                    player.inventory.GiveItem(ItemManager.CreateByName("syringe.medical", 5), player.inventory.containerMain);
+                    player.inventory.GiveItem(ItemManager.CreateByName("barricade.wood.cover", 3), player.inventory.containerMain);
+                }
+                else // Goalie gets custom skinned heavy plate armor
+                {
+                    GiveItemWithSkin(player, "metal.facemask.hockey", 1, 0, player.inventory.containerWear);
+                    GiveItemWithSkin(player, "heavy.plate.jacket", 1, skins.GoalieJacketSkin, player.inventory.containerWear);
+                    GiveItemWithSkin(player, "heavy.plate.pants", 1, skins.GoaliePantsSkin, player.inventory.containerWear);
+                    GiveItemWithSkin(player, "shoes.boots", 1, 0, player.inventory.containerWear);
+                    
+                    // Goalie supplies (no weapons - only voted weapon)
+                    player.inventory.GiveItem(ItemManager.CreateByName("syringe.medical", 10), player.inventory.containerMain);
+                    player.inventory.GiveItem(ItemManager.CreateByName("barricade.wood.cover", 3), player.inventory.containerMain);
+                }
+                
+                // Set health based on role
+                if (role == "Striker")
+                {
+                    player.SetMaxHealth(100); 
+                    player.health = 100;
+                }
+                else if (role == "Playmaker")
+                {
+                    player.SetMaxHealth(125); 
+                    player.health = 125;
+                }
+                else if (role == "Enforcer")
+                {
+                    player.SetMaxHealth(150); 
+                    player.health = 150;
+                }
+                else // Goalie
+                {
+                    player.SetMaxHealth(200); 
+                    player.health = 200;
+                }
             }
-            
-            // Role-specific loadouts with SoccerWeapons.cs integration
-            if (role == "Striker") 
+            // ==========================================
+            // SOCCER MODE: SoccerWeapons.cs abilities
+            // ==========================================
+            else
+            {
+                // Team-specific hazmat suit (NOT for goalies - they get armor)
+                string hazmatSuit = team == "red" ? "oubreak_scientist" :  // outbreak_scientist (red hazmat)
+                                   team == "black" ? "hazmatsuit_scientist_nvgm" : // hazmatsuit_scientist_nvgm (black hazmat with NVG)
+                                   "hazmat.krieg"; // blue team (krieg hazmat)
+                
+                // Give team hazmat suit to non-goalie roles
+                if (role != "Goalie")
+                {
+                    GiveItemWithSkin(player, hazmatSuit, 1, 0, player.inventory.containerWear);
+                }
+                
+                // Role-specific loadouts with SoccerWeapons.cs integration
+                if (role == "Striker")
             {
                 // Striker (Scorer): Speed, Scoring, Juking
                 // Primary: Baseball Bat (Home Run - hits ball)
@@ -1568,6 +1629,7 @@ namespace Oxide.Plugins
                 player.SetMaxHealth(200); 
                 player.health = 200;
             }
+            } // End of Soccer Mode
             
             // Try using Skins plugin if available for better skin loading
             if (Skins != null)
