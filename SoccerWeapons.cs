@@ -237,10 +237,9 @@ namespace Oxide.Plugins
             
             if (bone1 != null && bone2 != null)
             {
-                // Bone transforms are already in world space - just use their position directly
-                // The transform.position property returns world position
-                Vector3 worldPos1 = bone1.transform.position;
-                Vector3 worldPos2 = bone2.transform.position;
+                // FindBone returns Transform objects - use .position to get world coordinates
+                Vector3 worldPos1 = bone1.position;
+                Vector3 worldPos2 = bone2.position;
                 observer.SendConsoleCommand("ddraw.line", d, c, worldPos1, worldPos2);
             }
         }
