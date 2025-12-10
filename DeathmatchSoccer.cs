@@ -1911,19 +1911,58 @@ namespace Oxide.Plugins
             CuiHelper.DestroyUi(player, "HostUI");
             var c = new CuiElementContainer();
             
-            // HOST badge image - larger size (approx 2 inch wide x 1 inch height)
-            // Positioned in top-right corner with transparent background
+            // Main HOST panel - larger to accommodate buttons
+            // Positioned in top-right corner
+            c.Add(new CuiPanel
+            {
+                Image = { Color = "0.1 0.1 0.1 0.95" },
+                RectTransform = { AnchorMin = "0.80 0.82", AnchorMax = "0.99 0.98" },
+                CursorEnabled = false
+            }, "Overlay", "HostUI");
+            
+            // HOST badge image at top
             string hostBadgeImg = GetImg("Host_Badge");
             c.Add(new CuiElement
             {
-                Parent = "Overlay",
-                Name = "HostUI",
+                Parent = "HostUI",
+                Name = "HostBadge",
                 Components =
                 {
                     new CuiRawImageComponent { Png = hostBadgeImg },
-                    new CuiRectTransformComponent { AnchorMin = "0.83 0.90", AnchorMax = "0.98 0.98" }
+                    new CuiRectTransformComponent { AnchorMin = "0.05 0.70", AnchorMax = "0.95 0.95" }
                 }
             });
+            
+            // Button 1: Start Match
+            c.Add(new CuiButton
+            {
+                Button = { Command = "start_match", Color = "0.2 0.8 0.2 0.9" },
+                RectTransform = { AnchorMin = "0.05 0.48", AnchorMax = "0.95 0.64" },
+                Text = { Text = "START MATCH", FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "1 1 1 1" }
+            }, "HostUI", "HostStartBtn");
+            
+            // Button 2: Reset Ball
+            c.Add(new CuiButton
+            {
+                Button = { Command = "reset_ball", Color = "0.8 0.6 0.2 0.9" },
+                RectTransform = { AnchorMin = "0.05 0.30", AnchorMax = "0.95 0.46" },
+                Text = { Text = "RESET BALL", FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "1 1 1 1" }
+            }, "HostUI", "HostResetBtn");
+            
+            // Button 3: ReRoll Vote
+            c.Add(new CuiButton
+            {
+                Button = { Command = "reroll_vote", Color = "0.6 0.2 0.8 0.9" },
+                RectTransform = { AnchorMin = "0.05 0.12", AnchorMax = "0.95 0.28" },
+                Text = { Text = "REROLL VOTE", FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "1 1 1 1" }
+            }, "HostUI", "HostRerollBtn");
+            
+            // Info text at bottom
+            c.Add(new CuiLabel
+            {
+                Text = { Text = "HOST CONTROLS", FontSize = 10, Align = TextAnchor.MiddleCenter, Color = "0.8 0.8 0.8 1" },
+                RectTransform = { AnchorMin = "0.05 0.02", AnchorMax = "0.95 0.10" }
+            }, "HostUI");
             
             CuiHelper.AddUi(player, c);
         }
