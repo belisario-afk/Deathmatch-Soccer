@@ -261,8 +261,8 @@ namespace Oxide.Plugins
             
             if (bone1 != null && bone2 != null)
             {
-                Vector3 pos1 = bone1.GetEstimatedWorldPosition();
-                Vector3 pos2 = bone2.GetEstimatedWorldPosition();
+                Vector3 pos1 = bone1.position;
+                Vector3 pos2 = bone2.position;
                 observer.SendConsoleCommand("ddraw.line", d, c, pos1, pos2);
             }
         }
