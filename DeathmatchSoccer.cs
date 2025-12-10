@@ -1435,49 +1435,22 @@ namespace Oxide.Plugins
                 container.Add(new CuiPanel
                 {
                     Image = { Color = $"0 0 0 {0.8f * alpha}" }, // Dark semi-transparent background
-                    RectTransform = { AnchorMin = "0.02 " + (yPos - index * 0.09f - 0.08f), AnchorMax = "0.4 " + (yPos - index * 0.09f) }
+                    RectTransform = { AnchorMin = "0.02 " + (yPos - index * 0.065f - 0.06f), AnchorMax = "0.5 " + (yPos - index * 0.065f) } // Single line height: 0.06, spacing: 0.065
                 }, "KillFeedContainer", panelName);
                 
-                // Killer name (team colored) - top section, large font, bright white if no color
-                string finalKillerColor = killerColor;
-                if (string.IsNullOrEmpty(finalKillerColor)) finalKillerColor = "#FFFFFF";
+                // Single line with all text: "Killer message Victim"
+                string combinedText = $"{entry.KillerName} {entry.Message} {entry.VictimName}";
                 
                 container.Add(new CuiLabel
                 {
                     Text = { 
-                        Text = entry.KillerName, 
-                        FontSize = 18,
-                        Align = TextAnchor.UpperLeft, // Changed to UpperLeft so it doesn't get cut off
-                        Color = $"{GetColorFromHex(finalKillerColor)} {alpha}",
+                        Text = combinedText, 
+                        FontSize = 16,
+                        Align = TextAnchor.MiddleLeft,
+                        Color = $"1 1 1 {alpha}", // White text for all
                         Font = "robotocondensed-bold.ttf"
                     },
-                    RectTransform = { AnchorMin = "0.05 0.68", AnchorMax = "0.95 0.98" } // Adjusted to give more room
-                }, panelName);
-                
-                // AI-generated message - center section, large and prominent
-                container.Add(new CuiLabel
-                {
-                    Text = { 
-                        Text = entry.Message, 
-                        FontSize = 15,
-                        Align = TextAnchor.MiddleCenter,
-                        Color = $"1 1 1 {alpha}", // Pure white for maximum visibility
-                        Font = "robotocondensed-bold.ttf"
-                    },
-                    RectTransform = { AnchorMin = "0.05 0.35", AnchorMax = "0.95 0.7" }
-                }, panelName);
-                
-                // Victim name (team colored) - bottom section, large font
-                container.Add(new CuiLabel
-                {
-                    Text = { 
-                        Text = entry.VictimName, 
-                        FontSize = 18,
-                        Align = TextAnchor.MiddleRight,
-                        Color = $"{GetColorFromHex(victimColor)} {alpha}",
-                        Font = "robotocondensed-bold.ttf"
-                    },
-                    RectTransform = { AnchorMin = "0.05 0.05", AnchorMax = "0.95 0.35" }
+                    RectTransform = { AnchorMin = "0.02 0.1", AnchorMax = "0.98 0.9" } // Full panel with margins
                 }, panelName);
                 
                 index++;
