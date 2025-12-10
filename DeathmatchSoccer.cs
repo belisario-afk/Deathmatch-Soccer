@@ -452,6 +452,23 @@ namespace Oxide.Plugins
             }
             if (centerPos == Vector3.zero) { SendReply(player, "Error: Set Center first!"); return; }
             
+            // Start weapon voting first
+            PrintToChat("<color=#FFD700>========================================</color>");
+            PrintToChat("<color=#FFD700>🎮 MATCH STARTING SOON!</color>");
+            PrintToChat("<color=#FFD700>⚔️ WEAPON VOTE BEGINS NOW!</color>");
+            PrintToChat("<color=#FFD700>========================================</color>");
+            
+            StartWeaponVoting();
+            
+            // After voting ends (30 seconds), actually start the match
+            timer.Once(31f, () => {
+                BeginActualMatch();
+            });
+        }
+        
+        // Actually start the match after voting completes
+        private void BeginActualMatch()
+        {
             scoreRed = 0; scoreBlue = 0; scoreBlack = 0;
             matchNumber = 1;
             
@@ -1447,6 +1464,35 @@ namespace Oxide.Plugins
             {
                 Puts($"[Skins] Using Skins plugin to refresh skins for {player.displayName}");
                 Skins.Call("RefreshPlayer", player);
+            }
+            
+            // Give voted bonus weapon if one was selected
+            if (!string.IsNullOrEmpty(votedWeapon))
+            {
+                Puts($"[GiveKit] Giving bonus weapon to {player.displayName}: {votedWeapon}");
+                var weaponItem = ItemManager.CreateByName(votedWeapon, 1);
+                if (weaponItem != null)
+                {
+                    player.inventory.GiveItem(weaponItem, player.inventory.containerBelt);
+                    
+                    // Give appropriate ammo for the bonus weapon
+                    if (votedWeapon.Contains("rifle") || votedWeapon.Contains("lmg"))
+                    {
+                        player.inventory.GiveItem(ItemManager.CreateByName("ammo.rifle", 120), player.inventory.containerMain);
+                    }
+                    else if (votedWeapon.Contains("smg"))
+                    {
+                        player.inventory.GiveItem(ItemManager.CreateByName("ammo.pistol", 200), player.inventory.containerMain);
+                    }
+                    else if (votedWeapon.Contains("shotgun"))
+                    {
+                        player.inventory.GiveItem(ItemManager.CreateByName("ammo.shotgun", 48), player.inventory.containerMain);
+                    }
+                    else if (votedWeapon.Contains("bow"))
+                    {
+                        player.inventory.GiveItem(ItemManager.CreateByName("arrow.wooden", 80), player.inventory.containerMain);
+                    }
+                }
             }
             
             // Force multiple network updates to ensure skins load properly
