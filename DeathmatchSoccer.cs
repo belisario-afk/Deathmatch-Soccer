@@ -1430,64 +1430,58 @@ namespace Oxide.Plugins
                 
                 Puts($"[KillFeed] Colors - Killer: {killerColor}, Victim: {victimColor}");
                 
-                // Background panel - semi-transparent black for maximum visibility
+                // Main panel with border - gold outline for visibility
                 container.Add(new CuiPanel
                 {
-                    Image = { Color = $"0 0 0 {0.85f * alpha}" }, // Dark semi-transparent background
-                    RectTransform = { AnchorMin = "0.02 " + (yPos - index * 0.07f - 0.065f), AnchorMax = "0.42 " + (yPos - index * 0.07f) }
-                }, "KillFeedContainer", $"KillFeed_{index}");
+                    Image = { Color = $"1 0.84 0 {0.6f * alpha}" }, // Gold border
+                    RectTransform = { AnchorMin = "0.02 " + (yPos - index * 0.08f - 0.07f), AnchorMax = "0.45 " + (yPos - index * 0.08f) }
+                }, "KillFeedContainer", $"KillFeedBorder_{index}");
                 
-                // Border outline for visibility
+                // Inner dark background panel
                 container.Add(new CuiPanel
                 {
-                    Image = { Color = $"1 0.84 0 {0.5f * alpha}" }, // Gold border
-                    RectTransform = { AnchorMin = "0 0", AnchorMax = "1 1" }
-                }, $"KillFeed_{index}", $"KillFeedBorder_{index}");
-                
-                container.Add(new CuiPanel
-                {
-                    Image = { Color = $"0 0 0 {0.85f * alpha}" }, // Inner panel
-                    RectTransform = { AnchorMin = "0.005 0.02", AnchorMax = "0.995 0.98" }
-                }, $"KillFeedBorder_{index}", $"KillFeedInner_{index}");
+                    Image = { Color = $"0 0 0 {0.9f * alpha}" }, // Dark semi-transparent background
+                    RectTransform = { AnchorMin = "0.01 0.02", AnchorMax = "0.99 0.98" }
+                }, $"KillFeedBorder_{index}", $"KillFeed_{index}");
                 
                 // Killer name (team colored) - top section, very large font
                 container.Add(new CuiLabel
                 {
                     Text = { 
                         Text = entry.KillerName, 
-                        FontSize = 20, // Increased to 20
+                        FontSize = 20,
                         Align = TextAnchor.MiddleLeft,
                         Color = $"{GetColorFromHex(killerColor)} {alpha}",
                         Font = "robotocondensed-bold.ttf"
                     },
-                    RectTransform = { AnchorMin = "0.03 0.60", AnchorMax = "0.97 0.95" }
-                }, $"KillFeedInner_{index}");
+                    RectTransform = { AnchorMin = "0.05 0.65", AnchorMax = "0.95 0.95" }
+                }, $"KillFeed_{index}");
                 
                 // AI-generated message - center section, large and prominent
                 container.Add(new CuiLabel
                 {
                     Text = { 
                         Text = entry.Message, 
-                        FontSize = 17, // Increased to 17
+                        FontSize = 16,
                         Align = TextAnchor.MiddleCenter,
                         Color = $"1 1 1 {alpha}", // Pure white for maximum visibility
                         Font = "robotocondensed-bold.ttf"
                     },
-                    RectTransform = { AnchorMin = "0.03 0.35", AnchorMax = "0.97 0.60" }
-                }, $"KillFeedInner_{index}");
+                    RectTransform = { AnchorMin = "0.05 0.35", AnchorMax = "0.95 0.65" }
+                }, $"KillFeed_{index}");
                 
                 // Victim name (team colored) - bottom section, very large font
                 container.Add(new CuiLabel
                 {
                     Text = { 
                         Text = entry.VictimName, 
-                        FontSize = 20, // Increased to 20
+                        FontSize = 20,
                         Align = TextAnchor.MiddleRight,
                         Color = $"{GetColorFromHex(victimColor)} {alpha}",
                         Font = "robotocondensed-bold.ttf"
                     },
-                    RectTransform = { AnchorMin = "0.03 0.05", AnchorMax = "0.97 0.35" }
-                }, $"KillFeedInner_{index}");
+                    RectTransform = { AnchorMin = "0.05 0.05", AnchorMax = "0.95 0.35" }
+                }, $"KillFeed_{index}");
                 
                 index++;
             }
