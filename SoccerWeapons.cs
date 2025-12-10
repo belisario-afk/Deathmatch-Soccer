@@ -149,37 +149,110 @@ namespace Oxide.Plugins
 
             foreach (var target in nearby)
             {
-                if (target == observer || target.IsDead() || target.IsSleeping()) continue;
+                if (target == observer || target.IsDead()) continue;
 
+                float distance = Vector3.Distance(observer.transform.position, target.transform.position);
                 Color c = target.IsNpc ? Color.yellow : color;
+                
+                // Distance-based intensity (brighter when closer)
+                float intensity = Mathf.Clamp01(1.0f - (distance / Esp_Radius));
+                c = Color.Lerp(c, c * 1.5f, intensity);
+
+                // HEALTH BAR
+                Vector3 headPos = target.eyes.position + new Vector3(0, 0.5f, 0);
+                float healthPercent = target.health / target.MaxHealth();
+                Color healthColor = healthPercent > 0.7f ? Color.green : (healthPercent > 0.3f ? Color.yellow : Color.red);
+                Vector3 barStart = headPos + new Vector3(-0.3f, 0, 0);
+                Vector3 barEnd = barStart + new Vector3(0.6f * healthPercent, 0, 0);
+                observer.SendConsoleCommand("ddraw.line", duration, healthColor, barStart, barEnd);
+                
+                // WEAPON INFO
+                Item activeItem = target.GetActiveItem();
+                string weaponInfo = activeItem != null ? activeItem.info.displayName.english : "Unarmed";
+                observer.SendConsoleCommand("ddraw.text", duration, Color.cyan, headPos + new Vector3(0, 0.15f, 0), weaponInfo);
+
+                // STATUS INDICATORS
+                string status = "";
+                if (target.IsWounded()) status += "[WOUNDED] ";
+                if (target.metabolism.bleeding.value > 0) status += "[BLEEDING] ";
+                if (target.IsSleeping()) status += "[SLEEPING] ";
+                if (!string.IsNullOrEmpty(status))
+                    observer.SendConsoleCommand("ddraw.text", duration, Color.red, headPos + new Vector3(0, 0.3f, 0), status);
 
                 // TALL BOX
                 DrawPlayerBox(observer, target, c, duration);
 
-                // SKELETON
+                // ENHANCED SKELETON - Full anatomical structure
+                // HEAD & NECK
                 DrawBoneLine(observer, target, "head", "neck", c, duration);
-                DrawBoneLine(observer, target, "neck", "spine3", c, duration);
-                DrawBoneLine(observer, target, "spine3", "spine1", c, duration);
+                
+                // SPINE CHAIN (detailed)
+                DrawBoneLine(observer, target, "neck", "spine4", c, duration);
+                DrawBoneLine(observer, target, "spine4", "spine3", c, duration);
+                DrawBoneLine(observer, target, "spine3", "spine2", c, duration);
+                DrawBoneLine(observer, target, "spine2", "spine1", c, duration);
                 DrawBoneLine(observer, target, "spine1", "pelvis", c, duration);
-                // Arms
-                DrawBoneLine(observer, target, "neck", "l_upperarm", c, duration);
+                
+                // LEFT ARM (shoulder to fingers)
+                DrawBoneLine(observer, target, "spine4", "l_clavicle", c, duration);
+                DrawBoneLine(observer, target, "l_clavicle", "l_upperarm", c, duration);
                 DrawBoneLine(observer, target, "l_upperarm", "l_forearm", c, duration);
                 DrawBoneLine(observer, target, "l_forearm", "l_hand", c, duration);
-                DrawBoneLine(observer, target, "neck", "r_upperarm", c, duration);
+                // Left hand fingers
+                DrawBoneLine(observer, target, "l_hand", "l_thumb", c, duration);
+                DrawBoneLine(observer, target, "l_hand", "l_index", c, duration);
+                DrawBoneLine(observer, target, "l_hand", "l_middle", c, duration);
+                DrawBoneLine(observer, target, "l_hand", "l_ring", c, duration);
+                DrawBoneLine(observer, target, "l_hand", "l_pinky", c, duration);
+                
+                // RIGHT ARM (shoulder to fingers)
+                DrawBoneLine(observer, target, "spine4", "r_clavicle", c, duration);
+                DrawBoneLine(observer, target, "r_clavicle", "r_upperarm", c, duration);
                 DrawBoneLine(observer, target, "r_upperarm", "r_forearm", c, duration);
                 DrawBoneLine(observer, target, "r_forearm", "r_hand", c, duration);
-                // Legs
+                // Right hand fingers
+                DrawBoneLine(observer, target, "r_hand", "r_thumb", c, duration);
+                DrawBoneLine(observer, target, "r_hand", "r_index", c, duration);
+                DrawBoneLine(observer, target, "r_hand", "r_middle", c, duration);
+                DrawBoneLine(observer, target, "r_hand", "r_ring", c, duration);
+                DrawBoneLine(observer, target, "r_hand", "r_pinky", c, duration);
+                
+                // LEFT LEG (hip to toes)
                 DrawBoneLine(observer, target, "pelvis", "l_hip", c, duration);
                 DrawBoneLine(observer, target, "l_hip", "l_knee", c, duration);
-                DrawBoneLine(observer, target, "l_knee", "l_foot", c, duration);
+                DrawBoneLine(observer, target, "l_knee", "l_ankle_scale", c, duration);
+                DrawBoneLine(observer, target, "l_ankle_scale", "l_foot", c, duration);
+                DrawBoneLine(observer, target, "l_foot", "l_toe", c, duration);
+                
+                // RIGHT LEG (hip to toes)
                 DrawBoneLine(observer, target, "pelvis", "r_hip", c, duration);
                 DrawBoneLine(observer, target, "r_hip", "r_knee", c, duration);
-                DrawBoneLine(observer, target, "r_knee", "r_foot", c, duration);
+                DrawBoneLine(observer, target, "r_knee", "r_ankle_scale", c, duration);
+                DrawBoneLine(observer, target, "r_ankle_scale", "r_foot", c, duration);
+                DrawBoneLine(observer, target, "r_foot", "r_toe", c, duration);
 
-                // NAME TAG
-                Vector3 headPos = target.eyes.position;
-                string dist = $"{(int)Vector3.Distance(observer.transform.position, target.transform.position)}m";
-                observer.SendConsoleCommand("ddraw.text", duration, Color.white, headPos + new Vector3(0, 0.4f, 0), $"{target.displayName} [{dist}]");
+                // TARGETING AIDS
+                // Head sphere for headshot targeting
+                var headBone = target.FindBone("head");
+                if (headBone != null)
+                    observer.SendConsoleCommand("ddraw.sphere", duration, Color.red, headBone.position, 0.15f);
+                
+                // Chest sphere for center mass
+                var chestBone = target.FindBone("spine3");
+                if (chestBone != null)
+                    observer.SendConsoleCommand("ddraw.sphere", duration, Color.cyan, chestBone.position, 0.2f);
+
+                // MOVEMENT PREDICTION - Velocity vector
+                if (target.estimatedVelocity.magnitude > 0.1f)
+                {
+                    Vector3 velocityEnd = target.transform.position + target.estimatedVelocity.normalized * 2f;
+                    observer.SendConsoleCommand("ddraw.arrow", duration, Color.magenta, target.transform.position, velocityEnd, 0.1f);
+                }
+
+                // ENHANCED NAME TAG
+                string dist = $"{(int)distance}m";
+                string displayText = $"{target.displayName} [{dist}]\nHP: {(int)target.health}";
+                observer.SendConsoleCommand("ddraw.text", duration, Color.white, headPos + new Vector3(0, 0.6f, 0), displayText);
             }
         }
 
