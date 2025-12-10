@@ -1146,8 +1146,37 @@ namespace Oxide.Plugins
                         var res = JsonConvert.DeserializeObject<OpenAIResponse>(r);
                         string aiMessage = res.choices[0].message.content.Trim();
                         
-                        // Clean up any quotes or formatting
-                        aiMessage = aiMessage.Replace("\"", "").Replace("```", "").Trim();
+                        // Clean up any quotes, JSON formatting, and newlines
+                        aiMessage = aiMessage.Replace("\"", "").Replace("```", "").Replace("\n", " ").Replace("\r", "").Trim();
+                        
+                        // Remove any JSON-like structures (curly braces, colons, etc)
+                        if (aiMessage.Contains("{") || aiMessage.Contains("}") || aiMessage.Contains(":"))
+                        {
+                            // Extract only the message content if it's wrapped in JSON
+                            var match = System.Text.RegularExpressions.Regex.Match(aiMessage, @"message:\s*([^,}]+)");
+                            if (match.Success)
+                            {
+                                aiMessage = match.Groups[1].Value.Trim();
+                            }
+                            else
+                            {
+                                // If regex fails, just remove JSON characters
+                                aiMessage = aiMessage.Replace("{", "").Replace("}", "").Replace("message:", "").Replace("offer_accepted:", "").Replace("items_to_take:", "").Replace("items_to_give:", "").Trim();
+                                // Take only the first meaningful part before any remaining JSON
+                                var parts = aiMessage.Split(new[] { "false", "true", "(", "[" }, StringSplitOptions.RemoveEmptyEntries);
+                                if (parts.Length > 0)
+                                {
+                                    aiMessage = parts[0].Trim();
+                                }
+                            }
+                        }
+                        
+                        // Final cleanup - remove any trailing commas or special characters
+                        aiMessage = aiMessage.TrimEnd(',', '!', '.').Trim();
+                        if (!aiMessage.EndsWith("!") && !aiMessage.EndsWith("."))
+                        {
+                            aiMessage += "!"; // Add exclamation for impact
+                        }
                         
                         // Broadcast AI-generated kill message to all players
                         string teamColorKiller = killerTeam == "red" ? "#FF4444" : killerTeam == "blue" ? "#4444FF" : "#FFAA00";
@@ -1156,6 +1185,7 @@ namespace Oxide.Plugins
                         PrintToChat($"<color={teamColorKiller}>{killerName}</color> <color=#FFFFFF>{aiMessage}</color> <color={teamColorVictim}>{victimName}</color>");
                     } catch (Exception ex) { 
                         Puts($"[AI Kill Feed ERROR] Parse failed: {ex.Message}"); 
+                        Puts($"[AI Kill Feed ERROR] Raw response: {r}");
                     }
                 } else { 
                     Puts($"[AI Kill Feed ERROR] Code: {c} | {r}"); 
