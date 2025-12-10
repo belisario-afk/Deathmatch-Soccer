@@ -82,7 +82,7 @@ namespace Oxide.Plugins
         private string ImgGoalBannerBlueBlack = "https://i.imgur.com/5LmNp2X.png";
         
         // HOST badge image (displayed in host UI panel)
-        private string ImgHostBadge = "https://i.imgur.com/placeholder.png"; // TODO: Replace with actual HOST badge image URL
+        private string ImgHostBadge = "https://i.imgur.com/PeRORoA.png";
 
         [PluginReference] Plugin ImageLibrary;
         [PluginReference] Plugin Skins;
@@ -199,6 +199,9 @@ namespace Oxide.Plugins
         // TICKER
         private List<string> tickerMessages = new List<string> { "GOAL SWAPPING ROTATION", "LOSER'S GOAL REPLACED BY WAITING TEAM", "SHOOT BALL TO SCORE", "KILL ENEMIES", "FIRST TO 5 WINS" };
         private int tickerIndex = 0;
+        
+        // HOST SYSTEM
+        private ulong hostPlayerId = 0; // Stores user ID of current host player
         
         // WEAPON VOTING SYSTEM
         private bool weaponVotingActive = false;
