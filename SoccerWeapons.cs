@@ -182,54 +182,30 @@ namespace Oxide.Plugins
                 // TALL BOX
                 DrawPlayerBox(observer, target, c, duration);
 
-                // ENHANCED SKELETON - Full anatomical structure
-                // HEAD & NECK
-                DrawBoneLine(observer, target, "head", "neck", c, duration);
+                // ENHANCED SKELETON - Simplified to core bones that exist
+                // Use player body positions directly where possible
+                Vector3 head = target.eyes.position;
+                Vector3 chest = target.CenterPoint();
+                Vector3 pelvis = target.transform.position + new Vector3(0, 0.5f, 0);
+                Vector3 feet = target.transform.position;
                 
-                // SPINE CHAIN (detailed)
-                DrawBoneLine(observer, target, "neck", "spine4", c, duration);
-                DrawBoneLine(observer, target, "spine4", "spine3", c, duration);
-                DrawBoneLine(observer, target, "spine3", "spine2", c, duration);
-                DrawBoneLine(observer, target, "spine2", "spine1", c, duration);
-                DrawBoneLine(observer, target, "spine1", "pelvis", c, duration);
+                // Core skeleton lines
+                observer.SendConsoleCommand("ddraw.line", duration, c, head, chest);  // head to chest
+                observer.SendConsoleCommand("ddraw.line", duration, c, chest, pelvis); // chest to pelvis
+                observer.SendConsoleCommand("ddraw.line", duration, c, pelvis, feet);  // pelvis to feet
                 
-                // LEFT ARM (shoulder to fingers)
-                DrawBoneLine(observer, target, "spine4", "l_clavicle", c, duration);
-                DrawBoneLine(observer, target, "l_clavicle", "l_upperarm", c, duration);
+                // Try to draw limbs using bone positions if available
+                // Arms
                 DrawBoneLine(observer, target, "l_upperarm", "l_forearm", c, duration);
                 DrawBoneLine(observer, target, "l_forearm", "l_hand", c, duration);
-                // Left hand fingers
-                DrawBoneLine(observer, target, "l_hand", "l_thumb", c, duration);
-                DrawBoneLine(observer, target, "l_hand", "l_index", c, duration);
-                DrawBoneLine(observer, target, "l_hand", "l_middle", c, duration);
-                DrawBoneLine(observer, target, "l_hand", "l_ring", c, duration);
-                DrawBoneLine(observer, target, "l_hand", "l_pinky", c, duration);
-                
-                // RIGHT ARM (shoulder to fingers)
-                DrawBoneLine(observer, target, "spine4", "r_clavicle", c, duration);
-                DrawBoneLine(observer, target, "r_clavicle", "r_upperarm", c, duration);
                 DrawBoneLine(observer, target, "r_upperarm", "r_forearm", c, duration);
                 DrawBoneLine(observer, target, "r_forearm", "r_hand", c, duration);
-                // Right hand fingers
-                DrawBoneLine(observer, target, "r_hand", "r_thumb", c, duration);
-                DrawBoneLine(observer, target, "r_hand", "r_index", c, duration);
-                DrawBoneLine(observer, target, "r_hand", "r_middle", c, duration);
-                DrawBoneLine(observer, target, "r_hand", "r_ring", c, duration);
-                DrawBoneLine(observer, target, "r_hand", "r_pinky", c, duration);
                 
-                // LEFT LEG (hip to toes)
-                DrawBoneLine(observer, target, "pelvis", "l_hip", c, duration);
+                // Legs
                 DrawBoneLine(observer, target, "l_hip", "l_knee", c, duration);
-                DrawBoneLine(observer, target, "l_knee", "l_ankle_scale", c, duration);
-                DrawBoneLine(observer, target, "l_ankle_scale", "l_foot", c, duration);
-                DrawBoneLine(observer, target, "l_foot", "l_toe", c, duration);
-                
-                // RIGHT LEG (hip to toes)
-                DrawBoneLine(observer, target, "pelvis", "r_hip", c, duration);
+                DrawBoneLine(observer, target, "l_knee", "l_ankle", c, duration);
                 DrawBoneLine(observer, target, "r_hip", "r_knee", c, duration);
-                DrawBoneLine(observer, target, "r_knee", "r_ankle_scale", c, duration);
-                DrawBoneLine(observer, target, "r_ankle_scale", "r_foot", c, duration);
-                DrawBoneLine(observer, target, "r_foot", "r_toe", c, duration);
+                DrawBoneLine(observer, target, "r_knee", "r_ankle", c, duration);
 
                 // TARGETING AIDS
                 // Head sphere for headshot targeting - use eyes position (most reliable)
@@ -261,9 +237,11 @@ namespace Oxide.Plugins
             
             if (bone1 != null && bone2 != null)
             {
-                Vector3 pos1 = bone1.position;
-                Vector3 pos2 = bone2.position;
-                observer.SendConsoleCommand("ddraw.line", d, c, pos1, pos2);
+                // Bone transforms are already in world space - just use their position directly
+                // The transform.position property returns world position
+                Vector3 worldPos1 = bone1.transform.position;
+                Vector3 worldPos2 = bone2.transform.position;
+                observer.SendConsoleCommand("ddraw.line", d, c, worldPos1, worldPos2);
             }
         }
 
