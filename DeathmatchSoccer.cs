@@ -1297,17 +1297,13 @@ namespace Oxide.Plugins
             }
             else if (killer != null)
             {
-                // Player kill messages - use AI-generated funny/vulgar messages
+                // Player kill - simple format: "killed"
                 killerName = killer.displayName;
                 killerTeam = redTeam.Contains(killer.userID) ? "red" :
                             blueTeam.Contains(killer.userID) ? "blue" : "black";
                 
-                // Get AI-generated kill message
-                GenerateAIKillMessage(killerName, victim.displayName, killerTeam, victimTeam);
-                
-                // Use fallback message immediately for kill feed (AI message will be sent separately)
-                var messages = GetFunnyKillMessages();
-                message = messages[UnityEngine.Random.Range(0, messages.Count)];
+                // Simple kill message
+                message = "killed";
             }
             else
             {
@@ -1341,8 +1337,8 @@ namespace Oxide.Plugins
             Puts($"[KillFeed] Showing kill feed to all players");
             UpdateKillFeedForAll();
             
-            // Auto-remove after 15 seconds (increased to allow AI message to update)
-            timer.Once(15f, () => {
+            // Auto-remove after 10 seconds
+            timer.Once(10f, () => {
                 if (killFeed.Contains(entry))
                 {
                     killFeed.Remove(entry);
@@ -1439,9 +1435,8 @@ namespace Oxide.Plugins
                     RectTransform = { AnchorMin = "0.02 " + (yPos - index * 0.065f - 0.06f), AnchorMax = "0.5 " + (yPos - index * 0.065f) } // Single line height: 0.06, spacing: 0.065
                 }, "KillFeedContainer", panelName);
                 
-                // Single line with all text: "Killer message"
-                // Don't add victim name at end since it's already in the message
-                string combinedText = $"{entry.KillerName} {entry.Message}";
+                // Simple format: "Killer killed Victim"
+                string combinedText = $"{entry.KillerName} {entry.Message} {entry.VictimName}";
                 
                 container.Add(new CuiLabel
                 {
