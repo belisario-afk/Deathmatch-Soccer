@@ -1200,10 +1200,11 @@ namespace Oxide.Plugins
                         Puts($"[AI Kill Feed] Cleaned message: {aiMessage}");
                         
                         // Update the kill feed entry with the AI message instead of broadcasting to chat
+                        // Increased window to 10 seconds since AI response can take 3-5 seconds
                         var recentEntry = killFeed.FirstOrDefault(e => 
                             e.KillerName == killerName && 
                             e.VictimName == victimName && 
-                            (UnityEngine.Time.time - e.Timestamp) < 2f // Within last 2 seconds
+                            (UnityEngine.Time.time - e.Timestamp) < 10f // Within last 10 seconds
                         );
                         
                         if (recentEntry != null)
@@ -1216,6 +1217,12 @@ namespace Oxide.Plugins
                         else
                         {
                             Puts($"[AI Kill Feed] Could not find recent kill feed entry to update");
+                            Puts($"[AI Kill Feed] Current killFeed count: {killFeed.Count}");
+                            Puts($"[AI Kill Feed] Looking for: Killer={killerName}, Victim={victimName}");
+                            if (killFeed.Count > 0)
+                            {
+                                Puts($"[AI Kill Feed] Most recent entry: Killer={killFeed[0].KillerName}, Victim={killFeed[0].VictimName}, Age={(UnityEngine.Time.time - killFeed[0].Timestamp)}s");
+                            }
                         }
                     } catch (Exception ex) { 
                         Puts($"[AI Kill Feed ERROR] Parse failed: {ex.Message}"); 
@@ -1333,8 +1340,8 @@ namespace Oxide.Plugins
             Puts($"[KillFeed] Showing kill feed to all players");
             UpdateKillFeedForAll();
             
-            // Auto-remove after 10 seconds
-            timer.Once(10f, () => {
+            // Auto-remove after 15 seconds (increased to allow AI message to update)
+            timer.Once(15f, () => {
                 if (killFeed.Contains(entry))
                 {
                     killFeed.Remove(entry);
