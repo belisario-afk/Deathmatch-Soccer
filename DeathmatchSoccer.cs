@@ -214,23 +214,23 @@ namespace Oxide.Plugins
         // Weapon voting options with item shortnames and display names
         private Dictionary<string, WeaponOption> weaponOptions = new Dictionary<string, WeaponOption>
         {
-            { "ak47", new WeaponOption { ShortName = "rifle.ak", DisplayName = "AK-47", Icon = "rifle.ak" } },
-            { "lr300", new WeaponOption { ShortName = "rifle.lr300", DisplayName = "LR-300", Icon = "rifle.lr300" } },
-            { "m249", new WeaponOption { ShortName = "lmg.m249", DisplayName = "M249", Icon = "lmg.m249" } },
-            { "thompson", new WeaponOption { ShortName = "smg.thompson", DisplayName = "Thompson", Icon = "smg.thompson" } },
-            { "mp5", new WeaponOption { ShortName = "smg.mp5", DisplayName = "MP5", Icon = "smg.mp5" } },
-            { "custom", new WeaponOption { ShortName = "smg.2", DisplayName = "Custom SMG", Icon = "smg.2" } },
-            { "pump", new WeaponOption { ShortName = "shotgun.pump", DisplayName = "Pump Shotgun", Icon = "shotgun.pump" } },
-            { "double", new WeaponOption { ShortName = "shotgun.double", DisplayName = "Double Barrel", Icon = "shotgun.double" } },
-            { "compound", new WeaponOption { ShortName = "bow.compound", DisplayName = "Compound Bow", Icon = "bow.compound" } },
-            { "bolty", new WeaponOption { ShortName = "rifle.bolt", DisplayName = "Bolt Action", Icon = "rifle.bolt" } }
+            { "ak47", new WeaponOption { ShortName = "rifle.ak", DisplayName = "AK-47", ImageUrl = "https://i.imgur.com/placeholder_ak.png" } },
+            { "lr300", new WeaponOption { ShortName = "rifle.lr300", DisplayName = "LR-300", ImageUrl = "https://i.imgur.com/placeholder_lr300.png" } },
+            { "m249", new WeaponOption { ShortName = "lmg.m249", DisplayName = "M249", ImageUrl = "https://i.imgur.com/placeholder_m249.png" } },
+            { "thompson", new WeaponOption { ShortName = "smg.thompson", DisplayName = "Thompson", ImageUrl = "https://i.imgur.com/placeholder_thompson.png" } },
+            { "mp5", new WeaponOption { ShortName = "smg.mp5", DisplayName = "MP5", ImageUrl = "https://i.imgur.com/placeholder_mp5.png" } },
+            { "custom", new WeaponOption { ShortName = "smg.2", DisplayName = "Custom SMG", ImageUrl = "https://i.imgur.com/placeholder_custom.png" } },
+            { "pump", new WeaponOption { ShortName = "shotgun.pump", DisplayName = "Pump Shotgun", ImageUrl = "https://i.imgur.com/placeholder_pump.png" } },
+            { "double", new WeaponOption { ShortName = "shotgun.double", DisplayName = "Double Barrel", ImageUrl = "https://i.imgur.com/placeholder_double.png" } },
+            { "compound", new WeaponOption { ShortName = "bow.compound", DisplayName = "Compound Bow", ImageUrl = "https://i.imgur.com/placeholder_bow.png" } },
+            { "bolty", new WeaponOption { ShortName = "rifle.bolt", DisplayName = "Bolt Action", ImageUrl = "https://i.imgur.com/placeholder_bolt.png" } }
         };
         
         private class WeaponOption
         {
             public string ShortName { get; set; }
             public string DisplayName { get; set; }
-            public string Icon { get; set; }
+            public string ImageUrl { get; set; }
         }
 
         // TEAMS
@@ -376,6 +376,13 @@ namespace Oxide.Plugins
                 
                 // Register HOST badge image
                 ImageLibrary.Call("AddImage", ImgHostBadge, "Host_Badge");
+                
+                // Register weapon vote images
+                foreach (var weaponKey in weaponOptions.Keys)
+                {
+                    var weapon = weaponOptions[weaponKey];
+                    ImageLibrary.Call("AddImage", weapon.ImageUrl, $"Weapon_{weaponKey}");
+                }
             }
             
             Puts("DeathmatchSoccer: Hooks registered successfully");
@@ -2050,18 +2057,20 @@ namespace Oxide.Plugins
                     RectTransform = { AnchorMin = $"{minX} {minY}", AnchorMax = $"{maxX} {maxY}" } 
                 }, panel);
                 
-                // Weapon icon (using sprite icon)
-                var itemDef = ItemManager.FindItemDefinition(weapon.ShortName);
-                string iconSprite = itemDef != null ? $"assets/icons/{weapon.ShortName}.png" : "assets/icons/unknown.png";
-                c.Add(new CuiElement
+                // Weapon icon (using ImageLibrary URL-based images)
+                string weaponImgId = GetImg($"Weapon_{weaponKey}");
+                if (!string.IsNullOrEmpty(weaponImgId))
                 {
-                    Parent = btnPanel,
-                    Components =
+                    c.Add(new CuiElement
                     {
-                        new CuiRawImageComponent { Sprite = iconSprite },
-                        new CuiRectTransformComponent { AnchorMin = "0.1 0.35", AnchorMax = "0.9 0.85" }
-                    }
-                });
+                        Parent = btnPanel,
+                        Components =
+                        {
+                            new CuiRawImageComponent { Png = weaponImgId },
+                            new CuiRectTransformComponent { AnchorMin = "0.1 0.35", AnchorMax = "0.9 0.85" }
+                        }
+                    });
+                }
                 
                 // Weapon name
                 c.Add(new CuiLabel 
