@@ -483,17 +483,67 @@ namespace Oxide.Plugins
             BaseEntity hitEntity = hit.GetEntity();
             if (hitEntity != null && hitEntity.ShortPrefabName.Contains("ball"))
             {
+                // Safety check: ensure ball is still valid
+                if (hitEntity.IsDestroyed) return;
+                
                 Vector3 playerPos = player.transform.position;
                 Vector3 ballPos = hitEntity.transform.position;
+                
+                // Safety check: ensure positions are valid (not NaN or Infinity)
+                if (!IsValidPosition(playerPos) || !IsValidPosition(ballPos)) return;
+                
+                // Calculate swap positions with safety offsets
+                Vector3 newPlayerPos = ballPos + new Vector3(0, 0.5f, 0);
+                Vector3 newBallPos = playerPos + new Vector3(0, 1.0f, 0);
+                
+                // Effects at original positions
                 Effect.server.Run(FX_Magic, playerPos);
                 Effect.server.Run(FX_Magic, ballPos);
-                player.Teleport(ballPos + new Vector3(0, 0.5f, 0));
-                hitEntity.transform.position = playerPos + new Vector3(0, 1.0f, 0);
+                
+                // Teleport player to ball location
+                player.Teleport(newPlayerPos);
+                
+                // Move ball to player's original location with safety checks
                 Rigidbody ballRb = hitEntity.GetComponent<Rigidbody>();
-                if (ballRb != null) { ballRb.velocity = Vector3.zero; ballRb.WakeUp(); }
-                hitEntity.SendNetworkUpdateImmediate();
+                if (ballRb != null) 
+                { 
+                    // Stop ball movement before teleport
+                    ballRb.velocity = Vector3.zero;
+                    ballRb.angularVelocity = Vector3.zero;
+                    
+                    // Set new position
+                    hitEntity.transform.position = newBallPos;
+                    
+                    // Wake up physics
+                    ballRb.WakeUp();
+                }
+                else
+                {
+                    // Fallback if no rigidbody (shouldn't happen but safety first)
+                    hitEntity.transform.position = newBallPos;
+                }
+                
+                // Ensure network updates
+                hitEntity.SendNetworkUpdate();
+                player.SendNetworkUpdateImmediate();
+                
+                // Wait a frame then send another update (helps with sync)
+                timer.Once(0.1f, () => {
+                    if (hitEntity != null && !hitEntity.IsDestroyed)
+                    {
+                        hitEntity.SendNetworkUpdateImmediate();
+                    }
+                });
+                
                 player.ChatMessage("<color=#00ffff>PHASE SHIFT!</color>");
             }
+        }
+        
+        // Helper method to check if a position is valid
+        bool IsValidPosition(Vector3 pos)
+        {
+            return !float.IsNaN(pos.x) && !float.IsNaN(pos.y) && !float.IsNaN(pos.z) &&
+                   !float.IsInfinity(pos.x) && !float.IsInfinity(pos.y) && !float.IsInfinity(pos.z);
         }
 
         void ShootWhistle(BasePlayer player)
