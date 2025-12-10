@@ -1171,6 +1171,24 @@ namespace Oxide.Plugins
                             }
                         }
                         
+                        // Remove any "message_to_player:" prefix
+                        if (aiMessage.Contains("message_to_player:"))
+                        {
+                            aiMessage = aiMessage.Substring(aiMessage.IndexOf("message_to_player:") + 18).Trim();
+                        }
+                        
+                        // Clean up player names that might be duplicated at the start/end
+                        // Remove killer name at start if present
+                        if (aiMessage.StartsWith(killerName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            aiMessage = aiMessage.Substring(killerName.Length).Trim();
+                        }
+                        // Remove victim name at end if present
+                        if (aiMessage.EndsWith(victimName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            aiMessage = aiMessage.Substring(0, aiMessage.Length - victimName.Length).Trim();
+                        }
+                        
                         // Final cleanup - remove any trailing commas or special characters
                         aiMessage = aiMessage.TrimEnd(',', '!', '.').Trim();
                         if (!aiMessage.EndsWith("!") && !aiMessage.EndsWith("."))
@@ -1178,11 +1196,26 @@ namespace Oxide.Plugins
                             aiMessage += "!"; // Add exclamation for impact
                         }
                         
-                        // Broadcast AI-generated kill message to all players
-                        string teamColorKiller = killerTeam == "red" ? "#FF4444" : killerTeam == "blue" ? "#4444FF" : "#FFAA00";
-                        string teamColorVictim = victimTeam == "red" ? "#FF4444" : victimTeam == "blue" ? "#4444FF" : "#FFAA00";
+                        Puts($"[AI Kill Feed] Cleaned message: {aiMessage}");
                         
-                        PrintToChat($"<color={teamColorKiller}>{killerName}</color> <color=#FFFFFF>{aiMessage}</color> <color={teamColorVictim}>{victimName}</color>");
+                        // Update the kill feed entry with the AI message instead of broadcasting to chat
+                        var recentEntry = killFeed.FirstOrDefault(e => 
+                            e.KillerName == killerName && 
+                            e.VictimName == victimName && 
+                            (UnityEngine.Time.time - e.Timestamp) < 2f // Within last 2 seconds
+                        );
+                        
+                        if (recentEntry != null)
+                        {
+                            recentEntry.Message = aiMessage;
+                            Puts($"[AI Kill Feed] Updated kill feed entry with AI message");
+                            // Refresh the UI for all players to show the new message
+                            UpdateKillFeedForAll();
+                        }
+                        else
+                        {
+                            Puts($"[AI Kill Feed] Could not find recent kill feed entry to update");
+                        }
                     } catch (Exception ex) { 
                         Puts($"[AI Kill Feed ERROR] Parse failed: {ex.Message}"); 
                         Puts($"[AI Kill Feed ERROR] Raw response: {r}");
@@ -1385,62 +1418,50 @@ namespace Oxide.Plugins
                 
                 Puts($"[KillFeed] Colors - Killer: {killerColor}, Victim: {victimColor}");
                 
-                // Background panel
+                // Background panel - taller to fit message better
                 container.Add(new CuiPanel
                 {
                     Image = { Color = $"0.1 0.1 0.1 {0.8f * alpha}" },
-                    RectTransform = { AnchorMin = "0.01 " + (yPos - index * 0.05f - 0.045f), AnchorMax = "0.35 " + (yPos - index * 0.05f) }
+                    RectTransform = { AnchorMin = "0.01 " + (yPos - index * 0.06f - 0.055f), AnchorMax = "0.40 " + (yPos - index * 0.06f) }
                 }, "KillFeedContainer", $"KillFeed_{index}");
                 
-                // Killer name (team colored)
+                // Killer name (team colored) - top section
                 container.Add(new CuiLabel
                 {
                     Text = { 
                         Text = entry.KillerName, 
-                        FontSize = 14, 
+                        FontSize = 13, 
                         Align = TextAnchor.MiddleLeft,
                         Color = $"{GetColorFromHex(killerColor)} {alpha}",
                         Font = "robotocondensed-bold.ttf"
                     },
-                    RectTransform = { AnchorMin = "0.02 0.2", AnchorMax = "0.4 0.8" }
+                    RectTransform = { AnchorMin = "0.02 0.55", AnchorMax = "0.98 0.95" }
                 }, $"KillFeed_{index}");
                 
-                // Kill icon/message
-                container.Add(new CuiLabel
-                {
-                    Text = { 
-                        Text = "☠", 
-                        FontSize = 18, 
-                        Align = TextAnchor.MiddleCenter,
-                        Color = $"1 0 0 {alpha}"
-                    },
-                    RectTransform = { AnchorMin = "0.38 0.2", AnchorMax = "0.48 0.8" }
-                }, $"KillFeed_{index}");
-                
-                // Victim name (team colored)
-                container.Add(new CuiLabel
-                {
-                    Text = { 
-                        Text = entry.VictimName, 
-                        FontSize = 14, 
-                        Align = TextAnchor.MiddleLeft,
-                        Color = $"{GetColorFromHex(victimColor)} {alpha}",
-                        Font = "robotocondensed-bold.ttf"
-                    },
-                    RectTransform = { AnchorMin = "0.5 0.2", AnchorMax = "0.98 0.8" }
-                }, $"KillFeed_{index}");
-                
-                // Funny message subtitle
+                // AI-generated message - center section, larger and more prominent
                 container.Add(new CuiLabel
                 {
                     Text = { 
                         Text = entry.Message, 
-                        FontSize = 10, 
+                        FontSize = 11, 
                         Align = TextAnchor.MiddleCenter,
-                        Color = $"0.8 0.8 0.8 {alpha * 0.7f}",
+                        Color = $"1 1 1 {alpha}",
                         Font = "robotocondensed-regular.ttf"
                     },
-                    RectTransform = { AnchorMin = "0.02 0.0", AnchorMax = "0.98 0.25" }
+                    RectTransform = { AnchorMin = "0.02 0.30", AnchorMax = "0.98 0.55" }
+                }, $"KillFeed_{index}");
+                
+                // Victim name (team colored) - bottom section  
+                container.Add(new CuiLabel
+                {
+                    Text = { 
+                        Text = entry.VictimName, 
+                        FontSize = 13, 
+                        Align = TextAnchor.MiddleRight,
+                        Color = $"{GetColorFromHex(victimColor)} {alpha}",
+                        Font = "robotocondensed-bold.ttf"
+                    },
+                    RectTransform = { AnchorMin = "0.02 0.05", AnchorMax = "0.98 0.30" }
                 }, $"KillFeed_{index}");
                 
                 index++;
