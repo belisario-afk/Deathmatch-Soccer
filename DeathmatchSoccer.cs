@@ -200,7 +200,7 @@ namespace Oxide.Plugins
         private List<string> tickerMessages = new List<string> { "GOAL SWAPPING ROTATION", "LOSER'S GOAL REPLACED BY WAITING TEAM", "SHOOT BALL TO SCORE", "KILL ENEMIES", "FIRST TO 5 WINS" };
         private int tickerIndex = 0;
         
-        // HOST SYSTEM
+        //HOST SYSTEM
         private ulong hostPlayerId = 0; // Stores user ID of current host player
         
         // WEAPON VOTING SYSTEM
@@ -210,6 +210,7 @@ namespace Oxide.Plugins
         private string votedWeapon = null;
         private Timer votingTimer;
         private int votingTimeRemaining = 30; // 30 seconds to vote
+        private bool rerollUsedThisMatch = false; // Track if reroll has been used this match
         
         // Weapon voting options with item shortnames and display names
         private Dictionary<string, WeaponOption> weaponOptions = new Dictionary<string, WeaponOption>
@@ -481,6 +482,7 @@ namespace Oxide.Plugins
         {
             scoreRed = 0; scoreBlue = 0; scoreBlack = 0;
             matchNumber = 1;
+            rerollUsedThisMatch = false; // Reset reroll flag for new match
             
             if (rotationMode)
             {
@@ -600,7 +602,7 @@ namespace Oxide.Plugins
             Puts($"Loser spawn set to: {loserSpawnPos}");
         }
         
-        [ChatCommand("reset_ball")] 
+        [ChatCommand("reset_ball")]
         private void CmdResetBall(BasePlayer p, string c, string[] a) 
         { 
             // Allow admins OR host to reset ball
@@ -611,6 +613,55 @@ namespace Oxide.Plugins
             }
             SpawnBall(); 
             SendReply(p, "Ball Reset."); 
+        }
+        
+        [ChatCommand("reroll_vote")]
+        private void CmdRerollVote(BasePlayer p, string c, string[] a)
+        {
+            // Allow admins OR host to reroll vote
+            if (!p.IsAdmin && p.userID != hostPlayerId)
+            {
+                SendReply(p, "<color=#FF0000>Only admins or the host can reroll the vote!</color>");
+                return;
+            }
+            
+            // Check if match is active
+            if (!matchActive)
+            {
+                SendReply(p, "<color=#FF0000>Match is not active! Start a match first.</color>");
+                return;
+            }
+            
+            // Check if reroll has already been used this match
+            if (rerollUsedThisMatch)
+            {
+                SendReply(p, "<color=#FF0000>ReRoll has already been used this match! Only one reroll per match.</color>");
+                return;
+            }
+            
+            // Check if voting is already active
+            if (weaponVotingActive)
+            {
+                SendReply(p, "<color=#FF0000>Weapon voting is already active!</color>");
+                return;
+            }
+            
+            // Mark reroll as used
+            rerollUsedThisMatch = true;
+            
+            // Clear previous voted weapon
+            votedWeapon = null;
+            
+            // Announce reroll
+            PrintToChat($"<color=#FFD700>════════════════════════════════════════</color>");
+            PrintToChat($"<color=#FFD700>🔄 HOST REROLL!</color>");
+            PrintToChat($"<color=#FFD700>⚔️ WEAPON VOTE BEGINS NOW!</color>");
+            PrintToChat($"<color=#FFD700>════════════════════════════════════════</color>");
+            
+            // Start new weapon voting
+            StartWeaponVoting();
+            
+            SendReply(p, "<color=#00FF00>✓ Weapon vote rerolled successfully!</color>");
         }
         
         [ChatCommand("test_lobby_spawn")]
