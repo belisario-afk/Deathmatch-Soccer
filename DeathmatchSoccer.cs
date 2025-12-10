@@ -494,8 +494,8 @@ namespace Oxide.Plugins
         // Actually start the match after voting completes
         private void BeginActualMatch()
         {
-            // Reset game mode to default (mode voting will override if Normal wins)
-            gameMode = "soccer";
+            // Do NOT reset gameMode here - it's set by mode voting
+            // gameMode is determined by EndModeVoting() before this is called
             
             scoreRed = 0; scoreBlue = 0; scoreBlack = 0;
             matchNumber = 1;
