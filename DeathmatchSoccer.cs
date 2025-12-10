@@ -1655,8 +1655,52 @@ namespace Oxide.Plugins
                 Skins.Call("RefreshPlayer", player);
             }
             
-            // Bonus weapon is now given in DistributeBonusWeapon() only (not here)
-            // This prevents duplicate bonus weapons
+            // Give bonus weapon if match is active and weapon was voted
+            if (matchActive && !string.IsNullOrEmpty(votedWeapon))
+            {
+                // Check if player already has this weapon (prevent duplicates on respawn)
+                bool hasWeapon = false;
+                foreach (Item item in player.inventory.containerBelt.itemList)
+                {
+                    if (item.info.shortname == votedWeapon)
+                    {
+                        hasWeapon = true;
+                        break;
+                    }
+                }
+                
+                if (!hasWeapon)
+                {
+                    // Give weapon to belt
+                    GiveItemWithSkin(player, votedWeapon, 1, 0, player.inventory.containerBelt);
+                    
+                    // Add appropriate ammo based on weapon type
+                    if (votedWeapon.Contains("rifle.ak") || votedWeapon.Contains("rifle.lr300") || votedWeapon.Contains("rifle.m249"))
+                    {
+                        player.inventory.GiveItem(ItemManager.CreateByName("ammo.rifle", 128), player.inventory.containerMain);
+                    }
+                    else if (votedWeapon.Contains("smg."))
+                    {
+                        player.inventory.GiveItem(ItemManager.CreateByName("ammo.pistol", 128), player.inventory.containerMain);
+                    }
+                    else if (votedWeapon.Contains("shotgun."))
+                    {
+                        player.inventory.GiveItem(ItemManager.CreateByName("ammo.shotgun", 64), player.inventory.containerMain);
+                    }
+                    else if (votedWeapon.Contains("pistol."))
+                    {
+                        player.inventory.GiveItem(ItemManager.CreateByName("ammo.pistol", 200), player.inventory.containerMain);
+                    }
+                    else if (votedWeapon.Contains("rifle.bolt"))
+                    {
+                        player.inventory.GiveItem(ItemManager.CreateByName("ammo.rifle", 64), player.inventory.containerMain);
+                    }
+                    else if (votedWeapon.Contains("bow.compound"))
+                    {
+                        player.inventory.GiveItem(ItemManager.CreateByName("arrow.wooden", 64), player.inventory.containerMain);
+                    }
+                }
+            }
             
             // Force multiple network updates to ensure skins load properly
             // Update each container individually
