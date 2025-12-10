@@ -514,7 +514,7 @@ namespace Oxide.Plugins
                 PrintToChat("MATCH STARTED! 3 Teams Battle!");
             }
             
-            gameActive = true; matchStarted = true;
+            gameActive = true; matchStarted = true; matchActive = true;
             
             SpawnBall();
             RefreshScoreboardAll();
