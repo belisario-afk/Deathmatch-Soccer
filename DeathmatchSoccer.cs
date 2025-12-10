@@ -1765,57 +1765,19 @@ namespace Oxide.Plugins
             CuiHelper.DestroyUi(player, "HostUI");
             var c = new CuiElementContainer();
             
-            // Main host panel - top right corner
-            string panel = c.Add(new CuiPanel 
-            { 
-                Image = { Color = "0.8 0.6 0 0.95" }, 
-                RectTransform = { AnchorMin = "0.78 0.85", AnchorMax = "0.98 0.98" }, 
-                CursorEnabled = false 
-            }, "Overlay", "HostUI");
-            
-            // Try to use ImageLibrary for HOST badge image (URL-based, like scoreboard)
+            // HOST badge image - larger size (approx 2 inch wide x 1 inch height)
+            // Positioned in top-right corner with transparent background
             string hostBadgeImg = GetImg("Host_Badge");
-            if (!string.IsNullOrEmpty(hostBadgeImg))
+            c.Add(new CuiElement
             {
-                // Add image for HOST badge (downloaded from URL by ImageLibrary)
-                c.Add(new CuiElement
+                Parent = "Overlay",
+                Name = "HostUI",
+                Components =
                 {
-                    Parent = panel,
-                    Components =
-                    {
-                        new CuiRawImageComponent { Png = hostBadgeImg },
-                        new CuiRectTransformComponent { AnchorMin = "0.25 0.65", AnchorMax = "0.75 0.95" }
-                    }
-                });
-            }
-            else
-            {
-                // Fallback to text HOST badge if ImageLibrary not available or image not loaded
-                c.Add(new CuiLabel 
-                { 
-                    Text = { Text = "🎮 HOST", FontSize = 18, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf", Color = "1 1 1 1" }, 
-                    RectTransform = { AnchorMin = "0 0.65", AnchorMax = "1 0.95" } 
-                }, panel);
-            }
-            
-            // Privileges text
-            c.Add(new CuiLabel 
-            { 
-                Text = { Text = "Commands:", FontSize = 11, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.9" }, 
-                RectTransform = { AnchorMin = "0 0.45", AnchorMax = "1 0.65" } 
-            }, panel);
-            
-            c.Add(new CuiLabel 
-            { 
-                Text = { Text = "/start_match", FontSize = 10, Align = TextAnchor.MiddleCenter, Color = "0 1 0 1" }, 
-                RectTransform = { AnchorMin = "0 0.25", AnchorMax = "1 0.45" } 
-            }, panel);
-            
-            c.Add(new CuiLabel 
-            { 
-                Text = { Text = "/reset_ball", FontSize = 10, Align = TextAnchor.MiddleCenter, Color = "0 1 0 1" }, 
-                RectTransform = { AnchorMin = "0 0.05", AnchorMax = "1 0.25" } 
-            }, panel);
+                    new CuiRawImageComponent { Png = hostBadgeImg },
+                    new CuiRectTransformComponent { AnchorMin = "0.83 0.90", AnchorMax = "0.98 0.98" }
+                }
+            });
             
             CuiHelper.AddUi(player, c);
         }
