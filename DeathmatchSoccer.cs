@@ -1476,34 +1476,7 @@ namespace Oxide.Plugins
                 Skins.Call("RefreshPlayer", player);
             }
             
-            // Give voted bonus weapon if one was selected
-            if (!string.IsNullOrEmpty(votedWeapon))
-            {
-                Puts($"[GiveKit] Giving bonus weapon to {player.displayName}: {votedWeapon}");
-                var weaponItem = ItemManager.CreateByName(votedWeapon, 1);
-                if (weaponItem != null)
-                {
-                    player.inventory.GiveItem(weaponItem, player.inventory.containerBelt);
-                    
-                    // Give appropriate ammo for the bonus weapon
-                    if (votedWeapon.Contains("rifle") || votedWeapon.Contains("lmg"))
-                    {
-                        player.inventory.GiveItem(ItemManager.CreateByName("ammo.rifle", 120), player.inventory.containerMain);
-                    }
-                    else if (votedWeapon.Contains("smg"))
-                    {
-                        player.inventory.GiveItem(ItemManager.CreateByName("ammo.pistol", 200), player.inventory.containerMain);
-                    }
-                    else if (votedWeapon.Contains("shotgun"))
-                    {
-                        player.inventory.GiveItem(ItemManager.CreateByName("ammo.shotgun", 48), player.inventory.containerMain);
-                    }
-                    else if (votedWeapon.Contains("bow"))
-                    {
-                        player.inventory.GiveItem(ItemManager.CreateByName("arrow.wooden", 80), player.inventory.containerMain);
-                    }
-                }
-            }
+            // Bonus weapon is now given in EndWeaponVoting() after players select their kits
             
             // Force multiple network updates to ensure skins load properly
             // Update each container individually
@@ -2154,6 +2127,49 @@ namespace Oxide.Plugins
                 votedWeapon = weaponOptions[randomKey].ShortName;
                 string displayName = weaponOptions[randomKey].DisplayName;
                 PrintToChat($"<color=#FFD700>🎲 No clear winner! Random selection: {displayName}</color>");
+            }
+            
+            // Distribute bonus weapon to all team players now (after kits selected)
+            DistributeBonusWeapon();
+        }
+        
+        private void DistributeBonusWeapon()
+        {
+            if (string.IsNullOrEmpty(votedWeapon)) return;
+            
+            Puts($"[DistributeBonusWeapon] Distributing {votedWeapon} to all team players");
+            
+            foreach (var player in BasePlayer.activePlayerList)
+            {
+                if (player == null || !player.IsConnected) continue;
+                
+                var team = GetPlayerTeam(player);
+                if (team == "none") continue; // Only give to team players
+                
+                Puts($"[DistributeBonusWeapon] Giving {votedWeapon} to {player.displayName}");
+                var weaponItem = ItemManager.CreateByName(votedWeapon, 1);
+                if (weaponItem != null)
+                {
+                    player.inventory.GiveItem(weaponItem, player.inventory.containerBelt);
+                    
+                    // Give appropriate ammo for the bonus weapon
+                    if (votedWeapon.Contains("rifle") || votedWeapon.Contains("lmg"))
+                    {
+                        player.inventory.GiveItem(ItemManager.CreateByName("ammo.rifle", 120), player.inventory.containerMain);
+                    }
+                    else if (votedWeapon.Contains("smg"))
+                    {
+                        player.inventory.GiveItem(ItemManager.CreateByName("ammo.pistol", 200), player.inventory.containerMain);
+                    }
+                    else if (votedWeapon.Contains("shotgun"))
+                    {
+                        player.inventory.GiveItem(ItemManager.CreateByName("ammo.shotgun", 48), player.inventory.containerMain);
+                    }
+                    else if (votedWeapon.Contains("bow"))
+                    {
+                        player.inventory.GiveItem(ItemManager.CreateByName("arrow.wooden", 80), player.inventory.containerMain);
+                    }
+                }
             }
         }
         
