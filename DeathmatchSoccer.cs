@@ -1011,6 +1011,41 @@ namespace Oxide.Plugins
             };
         }
         
+        // Generate AI-powered funny/vulgar kill message
+        private void GenerateAIKillMessage(string killerName, string victimName, string killerTeam, string victimTeam)
+        {
+            string prompt = $"Generate a short, funny, R-rated kill feed message for: {killerName} ({killerTeam} team) killed {victimName} ({victimTeam} team). Make it vulgar, dark humor, and savage. Max 15 words. Just the message, no explanation.";
+            
+            var msg = new List<object> { 
+                new { role = "system", content = "You are a vulgar, hilarious sports commentator creating R-rated kill feed messages for a soccer deathmatch game. Be creative, savage, and funny." }, 
+                new { role = "user", content = prompt } 
+            };
+            
+            var data = new { license = licenseKey, server_ip = ConVar.Server.ip, messages = msg, mode = "killfeed", user_input = prompt };
+            
+            webrequest.Enqueue(middlewareUrl, JsonConvert.SerializeObject(data), (c, r) => {
+                if (c == 200) {
+                    try {
+                        var res = JsonConvert.DeserializeObject<OpenAIResponse>(r);
+                        string aiMessage = res.choices[0].message.content.Trim();
+                        
+                        // Clean up any quotes or formatting
+                        aiMessage = aiMessage.Replace("\"", "").Replace("```", "").Trim();
+                        
+                        // Broadcast AI-generated kill message to all players
+                        string teamColorKiller = killerTeam == "red" ? "#FF4444" : killerTeam == "blue" ? "#4444FF" : "#FFAA00";
+                        string teamColorVictim = victimTeam == "red" ? "#FF4444" : victimTeam == "blue" ? "#4444FF" : "#FFAA00";
+                        
+                        PrintToChat($"<color={teamColorKiller}>{killerName}</color> <color=#FFFFFF>{aiMessage}</color> <color={teamColorVictim}>{victimName}</color>");
+                    } catch (Exception ex) { 
+                        Puts($"[AI Kill Feed ERROR] Parse failed: {ex.Message}"); 
+                    }
+                } else { 
+                    Puts($"[AI Kill Feed ERROR] Code: {c} | {r}"); 
+                }
+            }, this, RequestMethod.POST, new Dictionary<string, string> { { "Content-Type", "application/json" } });
+        }
+        
         // Add kill to feed
         private void AddKillToFeed(BasePlayer killer, BasePlayer victim, string deathType = "Player")
         {
@@ -1073,11 +1108,15 @@ namespace Oxide.Plugins
             }
             else if (killer != null)
             {
-                // Player kill messages
+                // Player kill messages - use AI-generated funny/vulgar messages
                 killerName = killer.displayName;
                 killerTeam = redTeam.Contains(killer.userID) ? "red" :
                             blueTeam.Contains(killer.userID) ? "blue" : "black";
                 
+                // Get AI-generated kill message
+                GenerateAIKillMessage(killerName, victim.displayName, killerTeam, victimTeam);
+                
+                // Use fallback message immediately for kill feed (AI message will be sent separately)
                 var messages = GetFunnyKillMessages();
                 message = messages[UnityEngine.Random.Range(0, messages.Count)];
             }
