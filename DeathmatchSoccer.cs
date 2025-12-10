@@ -220,6 +220,14 @@ namespace Oxide.Plugins
         private int votingTimeRemaining = 30; // 30 seconds to vote
         private bool rerollUsedThisMatch = false; // Track if reroll has been used this match
         
+        // MODE VOTING SYSTEM (Soccer vs Normal)
+        private bool modeVotingActive = false;
+        private int soccerModeVotes = 0;
+        private int normalModeVotes = 0;
+        private HashSet<ulong> playersWhoVotedMode = new HashSet<ulong>();
+        private Timer modeVotingTimer;
+        private int modeVotingTimeRemaining = 15; // 15 seconds to vote
+        
         // Weapon voting options with item shortnames and display names
         private Dictionary<string, WeaponOption> weaponOptions = new Dictionary<string, WeaponOption>
         {
@@ -2413,8 +2421,8 @@ namespace Oxide.Plugins
                 PrintToChat($"<color=#FFD700>🎲 No clear winner! Random selection: {displayName}</color>");
             }
             
-            // Distribute bonus weapon to all team players now (after kits selected)
-            DistributeBonusWeapon();
+            // Start Mode Voting (Soccer vs Normal)
+            StartModeVoting();
         }
         
         private void DistributeBonusWeapon()
@@ -2504,6 +2512,188 @@ namespace Oxide.Plugins
                 if (p.userID != player.userID && (redTeam.Contains(p.userID) || blueTeam.Contains(p.userID) || blackTeam.Contains(p.userID)))
                 {
                     ShowWeaponVotingUI(p);
+                }
+            }
+        }
+
+        // ==========================================
+        // MODE VOTING SYSTEM
+        // ==========================================
+        private void StartModeVoting()
+        {
+            modeVotingActive = true;
+            soccerModeVotes = 0;
+            normalModeVotes = 0;
+            playersWhoVotedMode.Clear();
+            modeVotingTimeRemaining = 15;
+            
+            PrintToChat("<color=#FFD700>⚽ MODE VOTE: Soccer Mode (abilities) or Normal Mode (skins)?</color>");
+            PrintToChat("<color=#00FF00>🎮 Soccer Mode:</color> Role weapons + SoccerWeapons abilities");
+            PrintToChat("<color=#FF9933>👕 Normal Mode:</color> Custom team skins + voted weapon only");
+            
+            // Show mode voting UI to all players
+            foreach (var player in BasePlayer.activePlayerList)
+            {
+                if (redTeam.Contains(player.userID) || blueTeam.Contains(player.userID) || blackTeam.Contains(player.userID))
+                {
+                    ShowModeVotingUI(player);
+                }
+            }
+            
+            // Start countdown timer
+            modeVotingTimer = timer.Repeat(1f, modeVotingTimeRemaining, () =>
+            {
+                modeVotingTimeRemaining--;
+                
+                if (modeVotingTimeRemaining <= 0)
+                {
+                    EndModeVoting();
+                }
+                else
+                {
+                    // Update UI for all players with new time
+                    foreach (var p in BasePlayer.activePlayerList)
+                    {
+                        if (redTeam.Contains(p.userID) || blueTeam.Contains(p.userID) || blackTeam.Contains(p.userID))
+                        {
+                            ShowModeVotingUI(p);
+                        }
+                    }
+                }
+            });
+        }
+        
+        private void ShowModeVotingUI(BasePlayer player)
+        {
+            var container = new CuiElementContainer();
+            
+            // Main panel
+            container.Add(new CuiPanel
+            {
+                Image = { Color = "0 0 0 0.95" },
+                RectTransform = { AnchorMin = "0.25 0.3", AnchorMax = "0.75 0.7" },
+                CursorEnabled = true
+            }, "Overlay", "ModeVotingUI");
+            
+            // Title
+            container.Add(new CuiLabel
+            {
+                Text = { Text = $"MODE VOTE - {modeVotingTimeRemaining}s", FontSize = 24, Align = TextAnchor.MiddleCenter, Color = "1 0.84 0 1" },
+                RectTransform = { AnchorMin = "0 0.85", AnchorMax = "1 1" }
+            }, "ModeVotingUI");
+            
+            // Soccer Mode Button (Left)
+            container.Add(new CuiButton
+            {
+                Button = { Command = "vote_mode soccer", Color = "0 0.8 0 0.8" },
+                RectTransform = { AnchorMin = "0.05 0.4", AnchorMax = "0.45 0.75" },
+                Text = { Text = $"⚽ SOCCER MODE\n\nRole Weapons + Abilities\nHazmat Suits\n\n{soccerModeVotes} Votes", FontSize = 18, Align = TextAnchor.MiddleCenter, Color = "1 1 1 1" }
+            }, "ModeVotingUI");
+            
+            // Normal Mode Button (Right)
+            container.Add(new CuiButton
+            {
+                Button = { Command = "vote_mode normal", Color = "1 0.6 0 0.8" },
+                RectTransform = { AnchorMin = "0.55 0.4", AnchorMax = "0.95 0.75" },
+                Text = { Text = $"👕 NORMAL MODE\n\nCustom Team Skins\nVoted Weapon Only\n\n{normalModeVotes} Votes", FontSize = 18, Align = TextAnchor.MiddleCenter, Color = "1 1 1 1" }
+            }, "ModeVotingUI");
+            
+            // Info text
+            container.Add(new CuiLabel
+            {
+                Text = { Text = "Click to vote for your preferred mode!", FontSize = 14, Align = TextAnchor.MiddleCenter, Color = "0.8 0.8 0.8 1" },
+                RectTransform = { AnchorMin = "0 0.15", AnchorMax = "1 0.3" }
+            }, "ModeVotingUI");
+            
+            CuiHelper.DestroyUi(player, "ModeVotingUI");
+            CuiHelper.AddUi(player, container);
+        }
+        
+        private void EndModeVoting()
+        {
+            modeVotingActive = false;
+            
+            if (modeVotingTimer != null)
+            {
+                modeVotingTimer.Destroy();
+                modeVotingTimer = null;
+            }
+            
+            // Close voting UI for all players
+            foreach (var p in BasePlayer.activePlayerList)
+            {
+                CuiHelper.DestroyUi(p, "ModeVotingUI");
+            }
+            
+            // Determine winner
+            if (soccerModeVotes > normalModeVotes)
+            {
+                gameMode = "soccer";
+                PrintToChat($"<color=#00FF00>⚽ SOCCER MODE WINS with {soccerModeVotes} votes!</color>");
+                PrintToChat("<color=#00FF00>Players will receive role weapons + SoccerWeapons abilities!</color>");
+            }
+            else if (normalModeVotes > soccerModeVotes)
+            {
+                gameMode = "normal";
+                PrintToChat($"<color=#FF9933>👕 NORMAL MODE WINS with {normalModeVotes} votes!</color>");
+                PrintToChat("<color=#FF9933>Players will receive custom team skins + voted weapon only!</color>");
+            }
+            else
+            {
+                // Tie - default to soccer mode
+                gameMode = "soccer";
+                PrintToChat("<color=#FFD700>🎲 TIE! Defaulting to Soccer Mode.</color>");
+            }
+            
+            // Distribute bonus weapon and start match
+            DistributeBonusWeapon();
+        }
+        
+        [ConsoleCommand("vote_mode")]
+        private void CmdVoteMode(ConsoleSystem.Arg arg)
+        {
+            var player = arg.Player();
+            if (player == null) return;
+            
+            if (!modeVotingActive)
+            {
+                SendReply(player, "<color=#FF0000>Mode voting is not active!</color>");
+                return;
+            }
+            
+            if (playersWhoVotedMode.Contains(player.userID))
+            {
+                SendReply(player, "<color=#FF0000>You already voted!</color>");
+                return;
+            }
+            
+            string mode = arg.GetString(0);
+            if (mode != "soccer" && mode != "normal")
+            {
+                SendReply(player, "<color=#FF0000>Invalid mode choice!</color>");
+                return;
+            }
+            
+            // Register vote
+            if (mode == "soccer")
+            {
+                soccerModeVotes++;
+                SendReply(player, "<color=#00FF00>✓ Voted for Soccer Mode!</color>");
+            }
+            else
+            {
+                normalModeVotes++;
+                SendReply(player, "<color=#FF9933>✓ Voted for Normal Mode!</color>");
+            }
+            
+            playersWhoVotedMode.Add(player.userID);
+            
+            // Update UI for all players
+            foreach (var p in BasePlayer.activePlayerList)
+            {
+                if (redTeam.Contains(p.userID) || blueTeam.Contains(p.userID) || blackTeam.Contains(p.userID))
+                {
+                    ShowModeVotingUI(p);
                 }
             }
         }
