@@ -479,7 +479,7 @@ namespace Oxide.Plugins
             }
             if (centerPos == Vector3.zero) { SendReply(player, "Error: Set Center first!"); return; }
             
-            // Start weapon voting first
+            // Start weapon voting first (match will start after both voting phases complete)
             PrintToChat("<color=#FFD700>========================================</color>");
             PrintToChat("<color=#FFD700>🎮 MATCH STARTING SOON!</color>");
             PrintToChat("<color=#FFD700>⚔️ WEAPON VOTE BEGINS NOW!</color>");
@@ -487,15 +487,16 @@ namespace Oxide.Plugins
             
             StartWeaponVoting();
             
-            // After voting ends (30 seconds), actually start the match
-            timer.Once(31f, () => {
-                BeginActualMatch();
-            });
+            // Match will start after: Weapon Vote (30s) → Mode Vote (15s) → BeginActualMatch()
+            // Do NOT call BeginActualMatch() here - it's called in EndModeVoting()
         }
         
         // Actually start the match after voting completes
         private void BeginActualMatch()
         {
+            // Reset game mode to default (mode voting will override if Normal wins)
+            gameMode = "soccer";
+            
             scoreRed = 0; scoreBlue = 0; scoreBlack = 0;
             matchNumber = 1;
             rerollUsedThisMatch = false; // Reset reroll flag for new match
@@ -1486,6 +1487,14 @@ namespace Oxide.Plugins
         {
             player.inventory.Strip();
             
+            // If match hasn't started yet (still in voting phase), just strip inventory and return
+            // Players will get their kits when match actually starts (after voting)
+            if (!matchActive)
+            {
+                Puts($"[GiveKit] Match not active yet - player {player.displayName} will get kit when match starts");
+                return;
+            }
+            
             // Determine which team the player is on
             string team = redTeam.Contains(player.userID) ? "red" : 
                          blueTeam.Contains(player.userID) ? "blue" : "black";
@@ -2427,9 +2436,7 @@ namespace Oxide.Plugins
         
         private void DistributeBonusWeapon()
         {
-            if (string.IsNullOrEmpty(votedWeapon)) return;
-            
-            Puts($"[DistributeBonusWeapon] Distributing {votedWeapon} to all team players");
+            Puts($"[DistributeBonusWeapon] Starting distribution - votedWeapon: {votedWeapon}, matchActive: {matchActive}");
             
             foreach (var player in BasePlayer.activePlayerList)
             {
@@ -2443,28 +2450,40 @@ namespace Oxide.Plugins
                 
                 if (team == "none") continue; // Only give to team players
                 
-                Puts($"[DistributeBonusWeapon] Giving {votedWeapon} to {player.displayName}");
-                var weaponItem = ItemManager.CreateByName(votedWeapon, 1);
-                if (weaponItem != null)
+                // Check if player has a role assigned
+                if (!playerRoles.ContainsKey(player.userID)) continue;
+                string role = playerRoles[player.userID];
+                
+                // Give the player their kit (now that match is active)
+                Puts($"[DistributeBonusWeapon] Giving kit to {player.displayName} (Role: {role})");
+                GiveKit(player, role);
+                
+                // Give bonus weapon if one was voted for
+                if (!string.IsNullOrEmpty(votedWeapon))
                 {
-                    player.inventory.GiveItem(weaponItem, player.inventory.containerBelt);
-                    
-                    // Give appropriate ammo for the bonus weapon
-                    if (votedWeapon.Contains("rifle") || votedWeapon.Contains("lmg"))
+                    Puts($"[DistributeBonusWeapon] Giving {votedWeapon} to {player.displayName}");
+                    var weaponItem = ItemManager.CreateByName(votedWeapon, 1);
+                    if (weaponItem != null)
                     {
-                        player.inventory.GiveItem(ItemManager.CreateByName("ammo.rifle", 120), player.inventory.containerMain);
-                    }
-                    else if (votedWeapon.Contains("smg"))
-                    {
-                        player.inventory.GiveItem(ItemManager.CreateByName("ammo.pistol", 200), player.inventory.containerMain);
-                    }
-                    else if (votedWeapon.Contains("shotgun"))
-                    {
-                        player.inventory.GiveItem(ItemManager.CreateByName("ammo.shotgun", 48), player.inventory.containerMain);
-                    }
-                    else if (votedWeapon.Contains("bow"))
-                    {
-                        player.inventory.GiveItem(ItemManager.CreateByName("arrow.wooden", 80), player.inventory.containerMain);
+                        player.inventory.GiveItem(weaponItem, player.inventory.containerBelt);
+                        
+                        // Give appropriate ammo for the bonus weapon
+                        if (votedWeapon.Contains("rifle") || votedWeapon.Contains("lmg"))
+                        {
+                            player.inventory.GiveItem(ItemManager.CreateByName("ammo.rifle", 120), player.inventory.containerMain);
+                        }
+                        else if (votedWeapon.Contains("smg"))
+                        {
+                            player.inventory.GiveItem(ItemManager.CreateByName("ammo.pistol", 200), player.inventory.containerMain);
+                        }
+                        else if (votedWeapon.Contains("shotgun"))
+                        {
+                            player.inventory.GiveItem(ItemManager.CreateByName("ammo.shotgun", 48), player.inventory.containerMain);
+                        }
+                        else if (votedWeapon.Contains("bow"))
+                        {
+                            player.inventory.GiveItem(ItemManager.CreateByName("arrow.wooden", 80), player.inventory.containerMain);
+                        }
                     }
                 }
             }
@@ -2645,7 +2664,14 @@ namespace Oxide.Plugins
                 PrintToChat("<color=#FFD700>🎲 TIE! Defaulting to Soccer Mode.</color>");
             }
             
-            // Distribute bonus weapon and start match
+            // NOW start the actual match (after both voting phases complete)
+            PrintToChat("<color=#FFD700>========================================</color>");
+            PrintToChat("<color=#FFD700>🎮 MATCH STARTING NOW!</color>");
+            PrintToChat("<color=#FFD700>========================================</color>");
+            
+            BeginActualMatch();
+            
+            // Distribute bonus weapon and kits (players will get kits on respawn)
             DistributeBonusWeapon();
         }
         
