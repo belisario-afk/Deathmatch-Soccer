@@ -1132,10 +1132,10 @@ namespace Oxide.Plugins
         // Generate AI-powered funny/vulgar kill message
         private void GenerateAIKillMessage(string killerName, string victimName, string killerTeam, string victimTeam)
         {
-            string prompt = $"Generate a short, funny, R-rated kill feed message for: {killerName} ({killerTeam} team) killed {victimName} ({victimTeam} team). Make it vulgar, dark humor, and savage. Max 15 words. Just the message, no explanation.";
+            string prompt = $"{killerName} just killed {victimName} in a brutal soccer deathmatch. Write ONE short, absolutely hilarious, out-of-pocket, R-rated roast about this kill. Be creative, unexpected, and actually funny. Use dark humor, wordplay, or absurd comparisons. MAX 12 words. ONLY the roast, nothing else.";
             
             var msg = new List<object> { 
-                new { role = "system", content = "You are a vulgar, hilarious sports commentator creating R-rated kill feed messages for a soccer deathmatch game. Be creative, savage, and funny." }, 
+                new { role = "system", content = "You are an unhinged, hilarious sports commentator who creates wildly creative, out-of-pocket kill feed roasts. Make people laugh with unexpected humor, clever wordplay, and absurd comparisons. Be genuinely funny, not just vulgar. Think like a drunk comedian commentating a bloodsport." }, 
                 new { role = "user", content = prompt } 
             };
             
@@ -1184,14 +1184,27 @@ namespace Oxide.Plugins
                         {
                             aiMessage = aiMessage.Substring(killerName.Length).Trim();
                         }
-                        // Remove victim name at end if present
-                        if (aiMessage.EndsWith(victimName, StringComparison.OrdinalIgnoreCase))
+                        // Remove victim name at end if present (check multiple times to catch duplicates)
+                        while (aiMessage.EndsWith(victimName, StringComparison.OrdinalIgnoreCase))
                         {
                             aiMessage = aiMessage.Substring(0, aiMessage.Length - victimName.Length).Trim();
                         }
+                        // Also check for victim name in the middle/anywhere and remove duplicates
+                        // Count occurrences of victim name
+                        int victimCount = System.Text.RegularExpressions.Regex.Matches(aiMessage, System.Text.RegularExpressions.Regex.Escape(victimName), System.Text.RegularExpressions.RegexOptions.IgnoreCase).Count;
+                        // If victim name appears more than once, remove the duplicates
+                        if (victimCount > 1)
+                        {
+                            // Remove all trailing victim names
+                            while (aiMessage.EndsWith(victimName, StringComparison.OrdinalIgnoreCase))
+                            {
+                                aiMessage = aiMessage.Substring(0, aiMessage.Length - victimName.Length).Trim();
+                            }
+                        }
                         
-                        // Final cleanup - remove any trailing commas or special characters
-                        aiMessage = aiMessage.TrimEnd(',', '!', '.').Trim();
+                        // Final cleanup - remove any trailing commas, numbers, or special characters
+                        aiMessage = System.Text.RegularExpressions.Regex.Replace(aiMessage, @"\s+\d+\s*$", ""); // Remove trailing numbers
+                        aiMessage = aiMessage.TrimEnd(',', '!', '.', ' ').Trim();
                         if (!aiMessage.EndsWith("!") && !aiMessage.EndsWith("."))
                         {
                             aiMessage += "!"; // Add exclamation for impact
@@ -1438,8 +1451,9 @@ namespace Oxide.Plugins
                     RectTransform = { AnchorMin = "0.02 " + (yPos - index * 0.065f - 0.06f), AnchorMax = "0.5 " + (yPos - index * 0.065f) } // Single line height: 0.06, spacing: 0.065
                 }, "KillFeedContainer", panelName);
                 
-                // Single line with all text: "Killer message Victim"
-                string combinedText = $"{entry.KillerName} {entry.Message} {entry.VictimName}";
+                // Single line with all text: "Killer message"
+                // Don't add victim name at end since it's already in the message
+                string combinedText = $"{entry.KillerName} {entry.Message}";
                 
                 container.Add(new CuiLabel
                 {
