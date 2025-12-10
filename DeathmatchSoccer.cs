@@ -1438,17 +1438,20 @@ namespace Oxide.Plugins
                     RectTransform = { AnchorMin = "0.02 " + (yPos - index * 0.09f - 0.08f), AnchorMax = "0.4 " + (yPos - index * 0.09f) }
                 }, "KillFeedContainer", panelName);
                 
-                // Killer name (team colored) - top section, large font
+                // Killer name (team colored) - top section, large font, bright white if no color
+                string finalKillerColor = killerColor;
+                if (string.IsNullOrEmpty(finalKillerColor)) finalKillerColor = "#FFFFFF";
+                
                 container.Add(new CuiLabel
                 {
                     Text = { 
                         Text = entry.KillerName, 
                         FontSize = 18,
-                        Align = TextAnchor.MiddleLeft,
-                        Color = $"{GetColorFromHex(killerColor)} {alpha}",
+                        Align = TextAnchor.UpperLeft, // Changed to UpperLeft so it doesn't get cut off
+                        Color = $"{GetColorFromHex(finalKillerColor)} {alpha}",
                         Font = "robotocondensed-bold.ttf"
                     },
-                    RectTransform = { AnchorMin = "0.05 0.7", AnchorMax = "0.95 0.95" }
+                    RectTransform = { AnchorMin = "0.05 0.68", AnchorMax = "0.95 0.98" } // Adjusted to give more room
                 }, panelName);
                 
                 // AI-generated message - center section, large and prominent
