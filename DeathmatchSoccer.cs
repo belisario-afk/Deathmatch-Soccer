@@ -2050,13 +2050,15 @@ namespace Oxide.Plugins
                     RectTransform = { AnchorMin = $"{minX} {minY}", AnchorMax = $"{maxX} {maxY}" } 
                 }, panel);
                 
-                // Weapon icon (using item icon system)
+                // Weapon icon (using sprite icon)
+                var itemDef = ItemManager.FindItemDefinition(weapon.ShortName);
+                string iconSprite = itemDef != null ? $"assets/icons/{weapon.ShortName}.png" : "assets/icons/unknown.png";
                 c.Add(new CuiElement
                 {
                     Parent = btnPanel,
                     Components =
                     {
-                        new CuiRawImageComponent { Sprite = $"assets/content/textures/generic/fulltransparent.tga", ItemId = ItemManager.FindItemDefinition(weapon.ShortName)?.itemid ?? 0 },
+                        new CuiRawImageComponent { Sprite = iconSprite },
                         new CuiRectTransformComponent { AnchorMin = "0.1 0.35", AnchorMax = "0.9 0.85" }
                     }
                 });
