@@ -232,15 +232,11 @@ namespace Oxide.Plugins
                 DrawBoneLine(observer, target, "r_foot", "r_toe", c, duration);
 
                 // TARGETING AIDS
-                // Head sphere for headshot targeting
-                var headBone = target.FindBone("head");
-                if (headBone != null)
-                    observer.SendConsoleCommand("ddraw.sphere", duration, Color.red, headBone.position, 0.15f);
+                // Head sphere for headshot targeting - use eyes position (most reliable)
+                observer.SendConsoleCommand("ddraw.sphere", duration, Color.red, target.eyes.position, 0.15f);
                 
-                // Chest sphere for center mass
-                var chestBone = target.FindBone("spine3");
-                if (chestBone != null)
-                    observer.SendConsoleCommand("ddraw.sphere", duration, Color.cyan, chestBone.position, 0.2f);
+                // Chest sphere for center mass - use CenterPoint() built-in method
+                observer.SendConsoleCommand("ddraw.sphere", duration, Color.cyan, target.CenterPoint(), 0.2f);
 
                 // MOVEMENT PREDICTION - Velocity vector
                 if (target.estimatedVelocity.magnitude > 0.1f)
@@ -258,10 +254,17 @@ namespace Oxide.Plugins
 
         void DrawBoneLine(BasePlayer observer, BasePlayer target, string b1, string b2, Color c, float d)
         {
-            var bone1 = target.FindBone(b1);
-            var bone2 = target.FindBone(b2);
+            if (target.model == null) return;
+            
+            var bone1 = target.model.FindBone(b1);
+            var bone2 = target.model.FindBone(b2);
+            
             if (bone1 != null && bone2 != null)
-                observer.SendConsoleCommand("ddraw.line", d, c, bone1.position, bone2.position);
+            {
+                Vector3 pos1 = bone1.GetEstimatedWorldPosition();
+                Vector3 pos2 = bone2.GetEstimatedWorldPosition();
+                observer.SendConsoleCommand("ddraw.line", d, c, pos1, pos2);
+            }
         }
 
         void DrawPlayerBox(BasePlayer observer, BasePlayer target, Color c, float d)
