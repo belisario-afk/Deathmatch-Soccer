@@ -3178,7 +3178,23 @@ namespace Oxide.Plugins
             else
             {
                 matchStarted = false;
-                timer.Once(5f, () => { foreach(var p in BasePlayer.activePlayerList) { CuiHelper.DestroyUi(p, "SoccerScoreboard"); CuiHelper.DestroyUi(p, "SoccerTicker"); CuiHelper.DestroyUi(p, "BallRangeHUD"); CuiHelper.DestroyUi(p, "LeashHUD"); } });
+                matchActive = false; // Disable match to prevent auto-start
+                timer.Once(5f, () => { 
+                    foreach(var p in BasePlayer.activePlayerList) { 
+                        CuiHelper.DestroyUi(p, "SoccerScoreboard"); 
+                        CuiHelper.DestroyUi(p, "SoccerTicker"); 
+                        CuiHelper.DestroyUi(p, "BallRangeHUD"); 
+                        CuiHelper.DestroyUi(p, "LeashHUD"); 
+                    }
+                });
+                
+                // Notify that match is over and manual start required
+                timer.Once(6f, () => {
+                    PrintToChat("═══════════════════════════════════");
+                    PrintToChat("<color=#FFD700>🏆 MATCH ENDED!</color>");
+                    PrintToChat("<color=#FFD700>Host can start new match with /start_match</color>");
+                    PrintToChat("═══════════════════════════════════");
+                });
             }
         }
         
@@ -3330,6 +3346,7 @@ namespace Oxide.Plugins
             
             // Reset match state
             matchStarted = false;
+            matchActive = false; // Disable match to prevent auto-start
             matchNumber = 1;
             
             // Clear all UIs
@@ -3343,8 +3360,13 @@ namespace Oxide.Plugins
                 }
             });
             
-            // Start lobby countdown
-            timer.Once(15f, () => StartLobbyCountdown(30));
+            // DISABLED AUTO-START: Players now need host to manually start next tournament
+            // timer.Once(15f, () => StartLobbyCountdown(30));
+            
+            PrintToChat("═══════════════════════════════════");
+            PrintToChat("<color=#FFD700>🏆 TOURNAMENT ENDED!</color>");
+            PrintToChat("<color=#FFD700>Host can start new match with /start_match</color>");
+            PrintToChat("═══════════════════════════════════");
         }
         
         private void StartLobbyCountdown(int seconds)
