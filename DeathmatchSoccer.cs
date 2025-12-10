@@ -149,6 +149,7 @@ namespace Oxide.Plugins
         private int scoreBlack = 0;
         private bool gameActive = false; 
         private bool matchStarted = false; 
+        private bool matchActive = false; // Tracks if a match is currently active
         private bool debugActive = false;
         
         // ROTATION SYSTEM - Goal Swapping (2 play, 1 waits)
