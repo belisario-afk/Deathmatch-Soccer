@@ -1132,10 +1132,10 @@ namespace Oxide.Plugins
         // Generate AI-powered funny/vulgar kill message
         private void GenerateAIKillMessage(string killerName, string victimName, string killerTeam, string victimTeam)
         {
-            string prompt = $"{killerName} just killed {victimName} in a brutal soccer deathmatch. Write ONE short, absolutely hilarious, out-of-pocket, R-rated roast about this kill. Be creative, unexpected, and actually funny. Use dark humor, wordplay, or absurd comparisons. MAX 12 words. ONLY the roast, nothing else.";
+            string prompt = $"KILLER: {killerName} murdered VICTIM: {victimName}. Write a short, hilarious roast about what {killerName} did to {victimName}. Focus on HOW {killerName} destroyed {victimName}. Be out-of-pocket funny. MAX 10 words. DO NOT repeat their names in the roast - we already know who killed who. Just describe the kill creatively.";
             
             var msg = new List<object> { 
-                new { role = "system", content = "You are an unhinged, hilarious sports commentator who creates wildly creative, out-of-pocket kill feed roasts. Make people laugh with unexpected humor, clever wordplay, and absurd comparisons. Be genuinely funny, not just vulgar. Think like a drunk comedian commentating a bloodsport." }, 
+                new { role = "system", content = "You create SHORT, hilarious kill descriptions without using player names. Player names are already shown separately. Describe HOW the kill happened in a funny way. Examples: 'absolutely deleted them', 'sent them to the shadow realm', 'turned them into ground beef'. Be creative and funny, not cringe. MAX 10 WORDS." }, 
                 new { role = "user", content = prompt } 
             };
             
@@ -1178,33 +1178,21 @@ namespace Oxide.Plugins
                             aiMessage = aiMessage.Substring(aiMessage.IndexOf("message_to_player:") + 18).Trim();
                         }
                         
-                        // Clean up player names that might be duplicated at the start/end
-                        // Remove killer name at start if present
-                        if (aiMessage.StartsWith(killerName, StringComparison.OrdinalIgnoreCase))
-                        {
-                            aiMessage = aiMessage.Substring(killerName.Length).Trim();
-                        }
-                        // Remove victim name at end if present (check multiple times to catch duplicates)
-                        while (aiMessage.EndsWith(victimName, StringComparison.OrdinalIgnoreCase))
-                        {
-                            aiMessage = aiMessage.Substring(0, aiMessage.Length - victimName.Length).Trim();
-                        }
-                        // Also check for victim name in the middle/anywhere and remove duplicates
-                        // Count occurrences of victim name
-                        int victimCount = System.Text.RegularExpressions.Regex.Matches(aiMessage, System.Text.RegularExpressions.Regex.Escape(victimName), System.Text.RegularExpressions.RegexOptions.IgnoreCase).Count;
-                        // If victim name appears more than once, remove the duplicates
-                        if (victimCount > 1)
-                        {
-                            // Remove all trailing victim names
-                            while (aiMessage.EndsWith(victimName, StringComparison.OrdinalIgnoreCase))
-                            {
-                                aiMessage = aiMessage.Substring(0, aiMessage.Length - victimName.Length).Trim();
-                            }
-                        }
+                        // Aggressively remove ALL instances of both player names from the message
+                        // This prevents the AI from including names we'll add separately
+                        aiMessage = System.Text.RegularExpressions.Regex.Replace(aiMessage, System.Text.RegularExpressions.Regex.Escape(killerName), "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                        aiMessage = System.Text.RegularExpressions.Regex.Replace(aiMessage, System.Text.RegularExpressions.Regex.Escape(victimName), "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                        
+                        // Clean up extra spaces left by name removal
+                        aiMessage = System.Text.RegularExpressions.Regex.Replace(aiMessage, @"\s+", " ").Trim();
                         
                         // Final cleanup - remove any trailing commas, numbers, or special characters
                         aiMessage = System.Text.RegularExpressions.Regex.Replace(aiMessage, @"\s+\d+\s*$", ""); // Remove trailing numbers
                         aiMessage = aiMessage.TrimEnd(',', '!', '.', ' ').Trim();
+                        
+                        // Make sure message starts cleanly (no leftover punctuation)
+                        aiMessage = aiMessage.TrimStart(':', ',', ' ', '-').Trim();
+                        
                         if (!aiMessage.EndsWith("!") && !aiMessage.EndsWith("."))
                         {
                             aiMessage += "!"; // Add exclamation for impact
