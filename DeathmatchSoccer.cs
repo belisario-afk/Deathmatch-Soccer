@@ -922,6 +922,14 @@ namespace Oxide.Plugins
         [ChatCommand("leave")]
         private void CmdLeave(BasePlayer player, string command, string[] args)
         {
+            // Check if this player is the host before removing
+            if (player.userID == hostPlayerId)
+            {
+                Puts($"[Host] Host {player.displayName} is leaving team, transferring host");
+                hostPlayerId = 0; // Clear host
+                SelectHost(); // Transfer host to another player
+            }
+            
             // Remove player from all teams
             bool wasOnTeam = redTeam.Remove(player.userID) || 
                             blueTeam.Remove(player.userID) || 
@@ -1573,6 +1581,37 @@ namespace Oxide.Plugins
                     Puts($"[Skins] Final network update sent for {player.displayName}");
                 }
             });
+            
+            // Give bonus weapon from weapon vote if match is active
+            if (!string.IsNullOrEmpty(votedWeapon) && matchActive)
+            {
+                Puts($"[GiveKit] Giving bonus weapon {votedWeapon} to {player.displayName}");
+                var weaponItem = ItemManager.CreateByName(votedWeapon, 1);
+                if (weaponItem != null)
+                {
+                    player.inventory.GiveItem(weaponItem, player.inventory.containerBelt);
+                    
+                    // Give appropriate ammo for the bonus weapon
+                    if (votedWeapon.Contains("rifle") || votedWeapon.Contains("lmg"))
+                    {
+                        player.inventory.GiveItem(ItemManager.CreateByName("ammo.rifle", 120), player.inventory.containerMain);
+                    }
+                    else if (votedWeapon.Contains("smg"))
+                    {
+                        player.inventory.GiveItem(ItemManager.CreateByName("ammo.pistol", 200), player.inventory.containerMain);
+                    }
+                    else if (votedWeapon.Contains("shotgun"))
+                    {
+                        player.inventory.GiveItem(ItemManager.CreateByName("ammo.shotgun", 48), player.inventory.containerMain);
+                    }
+                    else if (votedWeapon.Contains("bow"))
+                    {
+                        player.inventory.GiveItem(ItemManager.CreateByName("arrow.wooden", 80), player.inventory.containerMain);
+                    }
+                    
+                    Puts($"[GiveKit] Bonus weapon {votedWeapon} given successfully");
+                }
+            }
         }
         
         private void GiveItemWithSkin(BasePlayer player, string itemName, int amount, ulong skinId, ItemContainer container)
@@ -1940,7 +1979,7 @@ namespace Oxide.Plugins
             // Button 1: Start Match
             c.Add(new CuiButton
             {
-                Button = { Command = "start_match", Color = "0.2 0.8 0.2 0.9" },
+                Button = { Command = "ds.start_match", Color = "0.2 0.8 0.2 0.9" },
                 RectTransform = { AnchorMin = "0.05 0.48", AnchorMax = "0.95 0.64" },
                 Text = { Text = "START MATCH", FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "1 1 1 1" }
             }, "HostUI", "HostStartBtn");
@@ -1948,7 +1987,7 @@ namespace Oxide.Plugins
             // Button 2: Reset Ball
             c.Add(new CuiButton
             {
-                Button = { Command = "reset_ball", Color = "0.8 0.6 0.2 0.9" },
+                Button = { Command = "ds.reset_ball", Color = "0.8 0.6 0.2 0.9" },
                 RectTransform = { AnchorMin = "0.05 0.30", AnchorMax = "0.95 0.46" },
                 Text = { Text = "RESET BALL", FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "1 1 1 1" }
             }, "HostUI", "HostResetBtn");
@@ -1956,7 +1995,7 @@ namespace Oxide.Plugins
             // Button 3: ReRoll Vote
             c.Add(new CuiButton
             {
-                Button = { Command = "reroll_vote", Color = "0.6 0.2 0.8 0.9" },
+                Button = { Command = "ds.reroll_vote", Color = "0.6 0.2 0.8 0.9" },
                 RectTransform = { AnchorMin = "0.05 0.12", AnchorMax = "0.95 0.28" },
                 Text = { Text = "REROLL VOTE", FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "1 1 1 1" }
             }, "HostUI", "HostRerollBtn");
@@ -2015,6 +2054,58 @@ namespace Oxide.Plugins
                 SendReply(newHost, "<color=#FFD700>You are now the HOST! You can use /start_match and /reset_ball</color>");
                 ShowHostUI(newHost);
             }
+        }
+        
+        // Console command handlers for Host UI buttons
+        [ConsoleCommand("ds.start_match")]
+        private void CmdStartMatchConsole(ConsoleSystem.Arg arg)
+        {
+            var player = arg.Player();
+            if (player == null) return;
+            
+            // Check if player is admin or host
+            if (!player.IsAdmin && player.userID != hostPlayerId)
+            {
+                SendReply(player, "Only admins or the host can start the match!");
+                return;
+            }
+            
+            // Call existing start match logic
+            CmdStartMatch(player, "start_match", new string[0]);
+        }
+        
+        [ConsoleCommand("ds.reset_ball")]
+        private void CmdResetBallConsole(ConsoleSystem.Arg arg)
+        {
+            var player = arg.Player();
+            if (player == null) return;
+            
+            // Check if player is admin or host
+            if (!player.IsAdmin && player.userID != hostPlayerId)
+            {
+                SendReply(player, "Only admins or the host can reset the ball!");
+                return;
+            }
+            
+            // Call existing reset ball logic
+            CmdResetBall(player, "reset_ball", new string[0]);
+        }
+        
+        [ConsoleCommand("ds.reroll_vote")]
+        private void CmdRerollVoteConsole(ConsoleSystem.Arg arg)
+        {
+            var player = arg.Player();
+            if (player == null) return;
+            
+            // Check if player is admin or host
+            if (!player.IsAdmin && player.userID != hostPlayerId)
+            {
+                SendReply(player, "<color=#FF0000>Only admins or the host can reroll the vote!</color>");
+                return;
+            }
+            
+            // Call existing reroll vote logic
+            CmdRerollVote(player, "reroll_vote", new string[0]);
         }
         
         // ==========================================
