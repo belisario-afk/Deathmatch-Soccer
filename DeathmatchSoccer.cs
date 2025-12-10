@@ -199,15 +199,42 @@ namespace Oxide.Plugins
         // TICKER
         private List<string> tickerMessages = new List<string> { "GOAL SWAPPING ROTATION", "LOSER'S GOAL REPLACED BY WAITING TEAM", "SHOOT BALL TO SCORE", "KILL ENEMIES", "FIRST TO 5 WINS" };
         private int tickerIndex = 0;
+        
+        // WEAPON VOTING SYSTEM
+        private bool weaponVotingActive = false;
+        private Dictionary<string, int> weaponVotes = new Dictionary<string, int>();
+        private HashSet<ulong> playersWhoVoted = new HashSet<ulong>();
+        private string votedWeapon = null;
+        private Timer votingTimer;
+        private int votingTimeRemaining = 30; // 30 seconds to vote
+        
+        // Weapon voting options with item shortnames and display names
+        private Dictionary<string, WeaponOption> weaponOptions = new Dictionary<string, WeaponOption>
+        {
+            { "ak47", new WeaponOption { ShortName = "rifle.ak", DisplayName = "AK-47", Icon = "rifle.ak" } },
+            { "lr300", new WeaponOption { ShortName = "rifle.lr300", DisplayName = "LR-300", Icon = "rifle.lr300" } },
+            { "m249", new WeaponOption { ShortName = "lmg.m249", DisplayName = "M249", Icon = "lmg.m249" } },
+            { "thompson", new WeaponOption { ShortName = "smg.thompson", DisplayName = "Thompson", Icon = "smg.thompson" } },
+            { "mp5", new WeaponOption { ShortName = "smg.mp5", DisplayName = "MP5", Icon = "smg.mp5" } },
+            { "custom", new WeaponOption { ShortName = "smg.2", DisplayName = "Custom SMG", Icon = "smg.2" } },
+            { "pump", new WeaponOption { ShortName = "shotgun.pump", DisplayName = "Pump Shotgun", Icon = "shotgun.pump" } },
+            { "double", new WeaponOption { ShortName = "shotgun.double", DisplayName = "Double Barrel", Icon = "shotgun.double" } },
+            { "compound", new WeaponOption { ShortName = "bow.compound", DisplayName = "Compound Bow", Icon = "bow.compound" } },
+            { "bolty", new WeaponOption { ShortName = "rifle.bolt", DisplayName = "Bolt Action", Icon = "rifle.bolt" } }
+        };
+        
+        private class WeaponOption
+        {
+            public string ShortName { get; set; }
+            public string DisplayName { get; set; }
+            public string Icon { get; set; }
+        }
 
         // TEAMS
         private List<ulong> redTeam = new List<ulong>();
         private List<ulong> blueTeam = new List<ulong>();
         private List<ulong> blackTeam = new List<ulong>();
         private Dictionary<ulong, string> playerRoles = new Dictionary<ulong, string>();
-        
-        // HOST SYSTEM
-        private ulong hostPlayerId = 0; // Track current host
         
         // TEAM CONFIG CLASS
         private class TeamConfig
@@ -1864,6 +1891,255 @@ namespace Oxide.Plugins
                 PrintToChat($"<color=#FFD700>🎮 {newHost.displayName} is now the HOST!</color>");
                 SendReply(newHost, "<color=#FFD700>You are now the HOST! You can use /start_match and /reset_ball</color>");
                 ShowHostUI(newHost);
+            }
+        }
+        
+        // ==========================================
+        // WEAPON VOTING SYSTEM
+        // ==========================================
+        
+        // Start weapon voting before match begins
+        private void StartWeaponVoting()
+        {
+            weaponVotingActive = true;
+            weaponVotes.Clear();
+            playersWhoVoted.Clear();
+            votedWeapon = null;
+            votingTimeRemaining = 30;
+            
+            // Initialize vote counts
+            foreach (var weapon in weaponOptions.Keys)
+            {
+                weaponVotes[weapon] = 0;
+            }
+            
+            // Show voting UI to all team players
+            foreach (var p in BasePlayer.activePlayerList)
+            {
+                if (redTeam.Contains(p.userID) || blueTeam.Contains(p.userID) || blackTeam.Contains(p.userID))
+                {
+                    ShowWeaponVotingUI(p);
+                }
+            }
+            
+            PrintToChat("<color=#FFD700>⚔️ WEAPON VOTE STARTED! Click your choice - 30 seconds!</color>");
+            
+            // Start countdown timer
+            if (votingTimer != null) votingTimer.Destroy();
+            votingTimer = timer.Repeat(1.0f, 30, () =>
+            {
+                votingTimeRemaining--;
+                
+                // Update UI with remaining time
+                foreach (var p in BasePlayer.activePlayerList)
+                {
+                    if (redTeam.Contains(p.userID) || blueTeam.Contains(p.userID) || blackTeam.Contains(p.userID))
+                    {
+                        UpdateWeaponVotingUI(p);
+                    }
+                }
+                
+                if (votingTimeRemaining <= 0)
+                {
+                    EndWeaponVoting();
+                }
+            });
+        }
+        
+        // Show weapon voting UI with 10 weapon options in 2 rows of 5
+        private void ShowWeaponVotingUI(BasePlayer player)
+        {
+            CuiHelper.DestroyUi(player, "WeaponVotingUI");
+            var c = new CuiElementContainer();
+            
+            // Main panel
+            string panel = c.Add(new CuiPanel 
+            { 
+                Image = { Color = "0 0 0 0.95" }, 
+                RectTransform = { AnchorMin = "0.2 0.3", AnchorMax = "0.8 0.7" }, 
+                CursorEnabled = true 
+            }, "Overlay", "WeaponVotingUI");
+            
+            // Title
+            c.Add(new CuiLabel 
+            { 
+                Text = { Text = $"⚔️ VOTE FOR BONUS WEAPON - {votingTimeRemaining}s", FontSize = 20, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf", Color = "1 0.84 0 1" }, 
+                RectTransform = { AnchorMin = "0 0.88", AnchorMax = "1 0.98" } 
+            }, panel);
+            
+            // Instructions
+            c.Add(new CuiLabel 
+            { 
+                Text = { Text = "Click a weapon to vote! Winner will be given to all players in addition to role kits.", FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.8" }, 
+                RectTransform = { AnchorMin = "0 0.78", AnchorMax = "1 0.86" } 
+            }, panel);
+            
+            // Weapon buttons - 2 rows of 5
+            int index = 0;
+            float rowHeight = 0.32f;
+            float buttonWidth = 0.18f;
+            float buttonHeight = 0.28f;
+            float spacing = 0.02f;
+            
+            foreach (var kvp in weaponOptions)
+            {
+                string weaponKey = kvp.Key;
+                var weapon = kvp.Value;
+                int row = index / 5;
+                int col = index % 5;
+                
+                float minX = 0.05f + (col * (buttonWidth + spacing));
+                float maxX = minX + buttonWidth;
+                float minY = 0.42f - (row * (rowHeight + spacing));
+                float maxY = minY + buttonHeight;
+                
+                // Button
+                string btnPanel = c.Add(new CuiButton 
+                { 
+                    Button = { Command = $"vote_weapon {weaponKey}", Color = "0.2 0.2 0.2 0.9" }, 
+                    Text = { Text = "", FontSize = 1 }, 
+                    RectTransform = { AnchorMin = $"{minX} {minY}", AnchorMax = $"{maxX} {maxY}" } 
+                }, panel);
+                
+                // Weapon icon (using item icon system)
+                c.Add(new CuiElement
+                {
+                    Parent = btnPanel,
+                    Components =
+                    {
+                        new CuiRawImageComponent { Sprite = $"assets/content/textures/generic/fulltransparent.tga", ItemId = ItemManager.FindItemDefinition(weapon.ShortName)?.itemid ?? 0 },
+                        new CuiRectTransformComponent { AnchorMin = "0.1 0.35", AnchorMax = "0.9 0.85" }
+                    }
+                });
+                
+                // Weapon name
+                c.Add(new CuiLabel 
+                { 
+                    Text = { Text = weapon.DisplayName, FontSize = 10, Align = TextAnchor.MiddleCenter, Color = "1 1 1 1" }, 
+                    RectTransform = { AnchorMin = "0 0.05", AnchorMax = "1 0.25" } 
+                }, btnPanel);
+                
+                // Vote count
+                int voteCount = weaponVotes.ContainsKey(weaponKey) ? weaponVotes[weaponKey] : 0;
+                c.Add(new CuiLabel 
+                { 
+                    Text = { Text = $"{voteCount} votes", FontSize = 9, Align = TextAnchor.MiddleCenter, Color = "0 1 0 1", Font = "robotocondensed-bold.ttf" }, 
+                    RectTransform = { AnchorMin = "0 0.82", AnchorMax = "1 0.95" } 
+                }, btnPanel);
+                
+                index++;
+            }
+            
+            // Show vote status
+            if (playersWhoVoted.Contains(player.userID))
+            {
+                c.Add(new CuiLabel 
+                { 
+                    Text = { Text = "✓ YOU VOTED!", FontSize = 14, Align = TextAnchor.MiddleCenter, Color = "0 1 0 1", Font = "robotocondensed-bold.ttf" }, 
+                    RectTransform = { AnchorMin = "0 0.02", AnchorMax = "1 0.10" } 
+                }, panel);
+            }
+            
+            CuiHelper.AddUi(player, c);
+        }
+        
+        // Update voting UI (for countdown timer)
+        private void UpdateWeaponVotingUI(BasePlayer player)
+        {
+            ShowWeaponVotingUI(player); // Just refresh the entire UI
+        }
+        
+        // End weapon voting and determine winner
+        private void EndWeaponVoting()
+        {
+            weaponVotingActive = false;
+            
+            if (votingTimer != null)
+            {
+                votingTimer.Destroy();
+                votingTimer = null;
+            }
+            
+            // Close voting UI for all players
+            foreach (var p in BasePlayer.activePlayerList)
+            {
+                CuiHelper.DestroyUi(p, "WeaponVotingUI");
+            }
+            
+            // Determine winner
+            string winnerKey = null;
+            int maxVotes = 0;
+            
+            foreach (var kvp in weaponVotes)
+            {
+                if (kvp.Value > maxVotes)
+                {
+                    maxVotes = kvp.Value;
+                    winnerKey = kvp.Key;
+                }
+            }
+            
+            if (winnerKey != null && weaponOptions.ContainsKey(winnerKey))
+            {
+                votedWeapon = weaponOptions[winnerKey].ShortName;
+                string displayName = weaponOptions[winnerKey].DisplayName;
+                PrintToChat($"<color=#FFD700>🏆 {displayName} WINS with {maxVotes} votes!</color>");
+                PrintToChat($"<color=#FFD700>All players will receive {displayName} + their role kit!</color>");
+            }
+            else
+            {
+                // No votes or tie - pick random
+                var keys = new List<string>(weaponOptions.Keys);
+                string randomKey = keys[UnityEngine.Random.Range(0, keys.Count)];
+                votedWeapon = weaponOptions[randomKey].ShortName;
+                string displayName = weaponOptions[randomKey].DisplayName;
+                PrintToChat($"<color=#FFD700>🎲 No clear winner! Random selection: {displayName}</color>");
+            }
+        }
+        
+        // Console command for weapon voting
+        [ConsoleCommand("vote_weapon")]
+        private void CmdVoteWeapon(ConsoleSystem.Arg arg)
+        {
+            var player = arg.Player();
+            if (player == null) return;
+            
+            if (!weaponVotingActive)
+            {
+                SendReply(player, "<color=#FF0000>Weapon voting is not active!</color>");
+                return;
+            }
+            
+            if (playersWhoVoted.Contains(player.userID))
+            {
+                SendReply(player, "<color=#FF0000>You already voted!</color>");
+                return;
+            }
+            
+            string weaponKey = arg.GetString(0);
+            if (!weaponOptions.ContainsKey(weaponKey))
+            {
+                SendReply(player, "<color=#FF0000>Invalid weapon choice!</color>");
+                return;
+            }
+            
+            // Register vote
+            weaponVotes[weaponKey]++;
+            playersWhoVoted.Add(player.userID);
+            
+            string weaponName = weaponOptions[weaponKey].DisplayName;
+            SendReply(player, $"<color=#00FF00>✓ Voted for {weaponName}!</color>");
+            
+            // Update UI for this player
+            ShowWeaponVotingUI(player);
+            
+            // Update UI for all other players (to show updated vote counts)
+            foreach (var p in BasePlayer.activePlayerList)
+            {
+                if (p.userID != player.userID && (redTeam.Contains(p.userID) || blueTeam.Contains(p.userID) || blackTeam.Contains(p.userID)))
+                {
+                    ShowWeaponVotingUI(p);
+                }
             }
         }
 
