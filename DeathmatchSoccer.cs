@@ -1655,7 +1655,8 @@ namespace Oxide.Plugins
                 Skins.Call("RefreshPlayer", player);
             }
             
-            // Bonus weapon is now given in EndWeaponVoting() after players select their kits
+            // Bonus weapon is now given in DistributeBonusWeapon() only (not here)
+            // This prevents duplicate bonus weapons
             
             // Force multiple network updates to ensure skins load properly
             // Update each container individually
@@ -1697,37 +1698,6 @@ namespace Oxide.Plugins
                     Puts($"[Skins] Final network update sent for {player.displayName}");
                 }
             });
-            
-            // Give bonus weapon from weapon vote if match is active
-            if (!string.IsNullOrEmpty(votedWeapon) && matchActive)
-            {
-                Puts($"[GiveKit] Giving bonus weapon {votedWeapon} to {player.displayName}");
-                var weaponItem = ItemManager.CreateByName(votedWeapon, 1);
-                if (weaponItem != null)
-                {
-                    player.inventory.GiveItem(weaponItem, player.inventory.containerBelt);
-                    
-                    // Give appropriate ammo for the bonus weapon
-                    if (votedWeapon.Contains("rifle") || votedWeapon.Contains("lmg"))
-                    {
-                        player.inventory.GiveItem(ItemManager.CreateByName("ammo.rifle", 120), player.inventory.containerMain);
-                    }
-                    else if (votedWeapon.Contains("smg"))
-                    {
-                        player.inventory.GiveItem(ItemManager.CreateByName("ammo.pistol", 200), player.inventory.containerMain);
-                    }
-                    else if (votedWeapon.Contains("shotgun"))
-                    {
-                        player.inventory.GiveItem(ItemManager.CreateByName("ammo.shotgun", 48), player.inventory.containerMain);
-                    }
-                    else if (votedWeapon.Contains("bow"))
-                    {
-                        player.inventory.GiveItem(ItemManager.CreateByName("arrow.wooden", 80), player.inventory.containerMain);
-                    }
-                    
-                    Puts($"[GiveKit] Bonus weapon {votedWeapon} given successfully");
-                }
-            }
         }
         
         private void GiveItemWithSkin(BasePlayer player, string itemName, int amount, ulong skinId, ItemContainer container)
