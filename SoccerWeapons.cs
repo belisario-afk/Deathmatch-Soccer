@@ -547,7 +547,22 @@ namespace Oxide.Plugins
                 
                 // Calculate swap positions with safety offsets
                 Vector3 newPlayerPos = ballPos + new Vector3(0, 0.5f, 0);
-                Vector3 newBallPos = playerPos + new Vector3(0, 1.0f, 0);
+                
+                // Find ground at player's position to ensure ball lands on solid surface
+                Vector3 rayStart = playerPos + new Vector3(0, 5f, 0);
+                RaycastHit groundHit;
+                Vector3 newBallPos;
+                
+                if (Physics.Raycast(rayStart, Vector3.down, out groundHit, 100f, LayerMask.GetMask("Terrain", "World", "Construction")))
+                {
+                    // Place ball 0.5m above ground for visibility
+                    newBallPos = groundHit.point + new Vector3(0, 0.5f, 0);
+                }
+                else
+                {
+                    // Fallback if no ground found - use player position with higher offset
+                    newBallPos = playerPos + new Vector3(0, 1.5f, 0);
+                }
                 
                 // Effects at original positions
                 Effect.server.Run(FX_Magic, playerPos);
@@ -567,8 +582,9 @@ namespace Oxide.Plugins
                     // Set new position
                     hitEntity.transform.position = newBallPos;
                     
-                    // Wake up physics
+                    // Wake up physics and ensure it stays active
                     ballRb.WakeUp();
+                    ballRb.isKinematic = false;
                 }
                 else
                 {
@@ -577,14 +593,33 @@ namespace Oxide.Plugins
                 }
                 
                 // Ensure network updates
-                hitEntity.SendNetworkUpdate();
+                hitEntity.SendNetworkUpdateImmediate();
                 player.SendNetworkUpdateImmediate();
                 
-                // Wait a frame then send another update (helps with sync)
+                // Multiple delayed updates to ensure all clients sync properly
+                timer.Once(0.05f, () => {
+                    if (hitEntity != null && !hitEntity.IsDestroyed)
+                    {
+                        hitEntity.SendNetworkUpdateImmediate();
+                    }
+                });
+                
                 timer.Once(0.1f, () => {
                     if (hitEntity != null && !hitEntity.IsDestroyed)
                     {
                         hitEntity.SendNetworkUpdateImmediate();
+                    }
+                });
+                
+                timer.Once(0.2f, () => {
+                    if (hitEntity != null && !hitEntity.IsDestroyed)
+                    {
+                        Rigidbody rb = hitEntity.GetComponent<Rigidbody>();
+                        if (rb != null)
+                        {
+                            rb.WakeUp(); // Ensure physics stays active
+                        }
+                        hitEntity.SendNetworkUpdate();
                     }
                 });
                 
