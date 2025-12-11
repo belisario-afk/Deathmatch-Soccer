@@ -2469,37 +2469,9 @@ namespace Oxide.Plugins
                 string role = playerRoles[player.userID];
                 
                 // Give the player their kit (now that match is active)
+                // GiveKit() will also handle bonus weapon distribution
                 Puts($"[DistributeBonusWeapon] Giving kit to {player.displayName} (Role: {role})");
                 GiveKit(player, role);
-                
-                // Give bonus weapon if one was voted for
-                if (!string.IsNullOrEmpty(votedWeapon))
-                {
-                    Puts($"[DistributeBonusWeapon] Giving {votedWeapon} to {player.displayName}");
-                    var weaponItem = ItemManager.CreateByName(votedWeapon, 1);
-                    if (weaponItem != null)
-                    {
-                        player.inventory.GiveItem(weaponItem, player.inventory.containerBelt);
-                        
-                        // Give appropriate ammo for the bonus weapon
-                        if (votedWeapon.Contains("rifle") || votedWeapon.Contains("lmg"))
-                        {
-                            player.inventory.GiveItem(ItemManager.CreateByName("ammo.rifle", 120), player.inventory.containerMain);
-                        }
-                        else if (votedWeapon.Contains("smg"))
-                        {
-                            player.inventory.GiveItem(ItemManager.CreateByName("ammo.pistol", 200), player.inventory.containerMain);
-                        }
-                        else if (votedWeapon.Contains("shotgun"))
-                        {
-                            player.inventory.GiveItem(ItemManager.CreateByName("ammo.shotgun", 48), player.inventory.containerMain);
-                        }
-                        else if (votedWeapon.Contains("bow"))
-                        {
-                            player.inventory.GiveItem(ItemManager.CreateByName("arrow.wooden", 80), player.inventory.containerMain);
-                        }
-                    }
-                }
             }
         }
         
