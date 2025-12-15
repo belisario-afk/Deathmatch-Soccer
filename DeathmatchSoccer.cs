@@ -1016,8 +1016,9 @@ namespace Oxide.Plugins
         {
             if (teamName == "red")
             {
-                foreach (var player in redTeamPlayers.Values)
+                foreach (var playerID in redTeam)
                 {
+                    var player = BasePlayer.FindByID(playerID);
                     if (player != null && player.IsConnected)
                     {
                         player.Teleport(position);
@@ -1027,8 +1028,9 @@ namespace Oxide.Plugins
             }
             else if (teamName == "blue")
             {
-                foreach (var player in blueTeamPlayers.Values)
+                foreach (var playerID in blueTeam)
                 {
+                    var player = BasePlayer.FindByID(playerID);
                     if (player != null && player.IsConnected)
                     {
                         player.Teleport(position);
@@ -1038,8 +1040,9 @@ namespace Oxide.Plugins
             }
             else if (teamName == "black")
             {
-                foreach (var player in blackTeamPlayers.Values)
+                foreach (var playerID in blackTeam)
                 {
+                    var player = BasePlayer.FindByID(playerID);
                     if (player != null && player.IsConnected)
                     {
                         player.Teleport(position);
@@ -1071,9 +1074,9 @@ namespace Oxide.Plugins
         
         private string GetPlayerTeam(BasePlayer player)
         {
-            if (redTeamPlayers.ContainsKey(player.userID)) return "red";
-            if (blueTeamPlayers.ContainsKey(player.userID)) return "blue";
-            if (blackTeamPlayers.ContainsKey(player.userID)) return "black";
+            if (redTeam.Contains(player.userID)) return "red";
+            if (blueTeam.Contains(player.userID)) return "blue";
+            if (blackTeam.Contains(player.userID)) return "black";
             
             if (playerTeamAssignments.ContainsKey(player.userID))
             {
