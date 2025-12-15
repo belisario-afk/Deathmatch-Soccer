@@ -770,62 +770,67 @@ namespace Oxide.Plugins
             bool blueActive = blueTeam.Count > 0;
             bool blackActive = blackTeam.Count > 0;
             
-            // Count custom teams with members
-            int customTeamCount = 0;
+            // Get list of active custom teams
+            List<string> activeCustomTeams = new List<string>();
             foreach (var kvp in customTeams)
             {
-                if (kvp.Value.Members.Count > 0) customTeamCount++;
+                if (kvp.Value.Members.Count > 0)
+                    activeCustomTeams.Add(kvp.Key);
             }
             
-            Puts($"[AssignTeamsToGoals] Red:{redActive} Blue:{blueActive} Black:{blackActive} Custom:{customTeamCount}");
+            Puts($"[AssignTeamsToGoals] Red:{redActive} Blue:{blueActive} Black:{blackActive} Custom:{activeCustomTeams.Count}");
             
             // Default colors
             Color redColor = new Color(1f, 0f, 0f);      // Bright red
             Color blueColor = new Color(0f, 0.5f, 1f);   // Cyan blue
             Color blackColor = new Color(0.2f, 0.2f, 0.2f); // Dark gray
             
-            // Assign teams to goals based on active teams
-            if (rotationMode)
+            // PRIORITY 1: Custom teams (2+ online) → Custom vs Custom
+            if (activeCustomTeams.Count >= 2)
             {
-                // Rotation mode: 2 teams attack, 1 defends
-                if (team1Playing == "red")
-                {
-                    goal1Team = "red";
-                    goal1Color = redColor;
-                }
-                else if (team1Playing == "blue")
-                {
-                    goal1Team = "blue";
-                    goal1Color = blueColor;
-                }
-                else if (team1Playing == "black")
-                {
-                    goal1Team = "black";
-                    goal1Color = blackColor;
-                }
+                goal1Team = activeCustomTeams[0];
+                goal1Color = GetCustomTeamColor(activeCustomTeams[0]);
+                goal2Team = activeCustomTeams[1];
+                goal2Color = GetCustomTeamColor(activeCustomTeams[1]);
                 
-                if (team2Playing == "red")
+                Puts($"[AssignTeamsToGoals] Custom vs Custom: {goal1Team} vs {goal2Team}");
+            }
+            // PRIORITY 2: Custom team (1 online) + Default team → Custom vs Default
+            else if (activeCustomTeams.Count == 1)
+            {
+                goal1Team = activeCustomTeams[0];
+                goal1Color = GetCustomTeamColor(activeCustomTeams[0]);
+                
+                // Find first active default team
+                if (redActive)
                 {
                     goal2Team = "red";
                     goal2Color = redColor;
                 }
-                else if (team2Playing == "blue")
+                else if (blueActive)
                 {
                     goal2Team = "blue";
                     goal2Color = blueColor;
                 }
-                else if (team2Playing == "black")
+                else if (blackActive)
                 {
                     goal2Team = "black";
                     goal2Color = blackColor;
                 }
+                else
+                {
+                    // No default teams, use red as fallback
+                    goal2Team = "red";
+                    goal2Color = redColor;
+                }
+                
+                Puts($"[AssignTeamsToGoals] Custom vs Default: {goal1Team} vs {goal2Team}");
             }
+            // PRIORITY 3: No custom teams → Default vs Default
             else
             {
-                // Normal mode: Assign based on who's playing
                 if (redActive && blueActive)
                 {
-                    // Red vs Blue
                     goal1Team = "red";
                     goal1Color = redColor;
                     goal2Team = "blue";
@@ -833,7 +838,6 @@ namespace Oxide.Plugins
                 }
                 else if (redActive && blackActive)
                 {
-                    // Red vs Black
                     goal1Team = "red";
                     goal1Color = redColor;
                     goal2Team = "black";
@@ -841,42 +845,46 @@ namespace Oxide.Plugins
                 }
                 else if (blueActive && blackActive)
                 {
-                    // Blue vs Black
                     goal1Team = "blue";
                     goal1Color = blueColor;
                     goal2Team = "black";
                     goal2Color = blackColor;
                 }
-                else if (customTeamCount >= 2)
-                {
-                    // Custom team match - assign first two custom teams
-                    int count = 0;
-                    foreach (var kvp in customTeams)
-                    {
-                        if (kvp.Value.Members.Count > 0)
-                        {
-                            if (count == 0)
-                            {
-                                goal1Team = kvp.Key;
-                                goal1Color = GetCustomTeamColor(kvp.Key);
-                            }
-                            else if (count == 1)
-                            {
-                                goal2Team = kvp.Key;
-                                goal2Color = GetCustomTeamColor(kvp.Key);
-                                break;
-                            }
-                            count++;
-                        }
-                    }
-                }
                 else
                 {
-                    // Default fallback
+                    // Default fallback (no teams active)
                     goal1Team = "red";
                     goal1Color = redColor;
                     goal2Team = "blue";
                     goal2Color = blueColor;
+                }
+                
+                Puts($"[AssignTeamsToGoals] Default vs Default: {goal1Team} vs {goal2Team}");
+            }
+            
+            // Update rotation mode teams if applicable
+            if (rotationMode)
+            {
+                team1Playing = goal1Team;
+                team2Playing = goal2Team;
+                // Set waiting team (for 3-team rotation)
+                if (activeCustomTeams.Count >= 3)
+                {
+                    waitingTeam = activeCustomTeams[2];
+                }
+                else if (activeCustomTeams.Count == 2)
+                {
+                    // Find first default team as waiting
+                    if (redActive && goal1Team != "red" && goal2Team != "red") waitingTeam = "red";
+                    else if (blueActive && goal1Team != "blue" && goal2Team != "blue") waitingTeam = "blue";
+                    else if (blackActive && goal1Team != "black" && goal2Team != "black") waitingTeam = "black";
+                }
+                else
+                {
+                    // Default team rotation
+                    if (goal1Team == "red" && goal2Team == "blue") waitingTeam = "black";
+                    else if (goal1Team == "red" && goal2Team == "black") waitingTeam = "blue";
+                    else waitingTeam = "red";
                 }
             }
             
@@ -3582,26 +3590,9 @@ namespace Oxide.Plugins
 
             var container = new CuiElementContainer();
             
-            // Select scoreboard background based on current matchup
-            string scoreboardKey = "Soccer_Bar_BG_RedBlue"; // Default
-            
-            if ((team1Playing == "black" && team2Playing == "red") || 
-                (team1Playing == "red" && team2Playing == "black"))
-            {
-                scoreboardKey = "Soccer_Bar_BG_BlackRed";
-            }
-            else if ((team1Playing == "blue" && team2Playing == "black") || 
-                     (team1Playing == "black" && team2Playing == "blue"))
-            {
-                scoreboardKey = "Soccer_Bar_BG_BlueBlack";
-            }
-            
-            string imgId = GetImg(scoreboardKey);
-            
+            // Simple dark panel background - no static images (they hide team emblems)
             var panel = new CuiPanel { Image = { Color = "0 0 0 0.8" }, RectTransform = { AnchorMin = "0.25 0.88", AnchorMax = "0.75 0.98" }, CursorEnabled = false };
-            if (!string.IsNullOrEmpty(imgId))
-                container.Add(new CuiElement { Name = "SoccerScoreboard", Parent = "Overlay", Components = { new CuiRawImageComponent { Png = imgId }, new CuiRectTransformComponent { AnchorMin = "0.25 0.88", AnchorMax = "0.75 0.98" } } });
-            else container.Add(panel, "Overlay", "SoccerScoreboard");
+            container.Add(panel, "Overlay", "SoccerScoreboard");
 
             if (rotationMode)
             {
