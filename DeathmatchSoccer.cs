@@ -275,9 +275,46 @@ namespace Oxide.Plugins
             public string Message { get; set; }
             public float Timestamp { get; set; }
         }
+        
+        // CUSTOM TEAM/KIT SYSTEM
+        private Dictionary<ulong, int> playerCurrency = new Dictionary<ulong, int>();
+        private Dictionary<string, CustomTeam> customTeams = new Dictionary<string, CustomTeam>();
+        private Dictionary<ulong, string> playerTeamAssignments = new Dictionary<ulong, string>();
+        private HashSet<string> onlineCustomTeams = new HashSet<string>();
+        
+        // CUSTOM TEAM CLASS
+        private class CustomTeam
+        {
+            public string TeamID { get; set; }
+            public string TeamName { get; set; }
+            public ulong OwnerID { get; set; }
+            public List<ulong> Members { get; set; } = new List<ulong>();
+            
+            // Kit Skins (5-piece attire for regular players)
+            public ulong TshirtSkin { get; set; }
+            public ulong PantsSkin { get; set; }
+            public ulong TorsoSkin { get; set; }
+            public ulong FacemaskSkin { get; set; }
+            public ulong ShoesSkin { get; set; }
+            
+            // Goalie Kit (heavy plate armor)
+            public ulong GoalieJacketSkin { get; set; }
+            public ulong GoaliePantsSkin { get; set; }
+            
+            public DateTime CreatedAt { get; set; }
+        }
+        
+        // PLAYER CURRENCY CLASS
+        private class PlayerCurrency
+        {
+            public ulong PlayerID { get; set; }
+            public int Coins { get; set; }
+        }
 
         // DATA FILE
         private const string DataFileName = "DeathmatchSoccer_Data";
+        private const string CustomTeamsDataFile = "DeathmatchSoccer_CustomTeams";
+        private const string PlayerCurrencyDataFile = "DeathmatchSoccer_Currency";
 
         // ==========================================
         // 2. DATA PERSISTENCE (SAVING/LOADING)
