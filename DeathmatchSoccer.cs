@@ -217,6 +217,21 @@ namespace Oxide.Plugins
         //HOST SYSTEM
         private ulong hostPlayerId = 0; // Stores user ID of current host player
         
+        // TOURNAMENT SYSTEM
+        private class TournamentMatch
+        {
+            public string team1;
+            public string team2;
+            public string winner;
+            public int matchNumber;
+            public bool isComplete;
+        }
+        
+        private bool tournamentActive = false;
+        private List<TournamentMatch> tournamentBracket = new List<TournamentMatch>();
+        private int currentMatchIndex = 0;
+        private Vector3 waitingAreaSpawnPos = Vector3.zero;
+        
         // WEAPON VOTING SYSTEM
         private bool weaponVotingActive = false;
         private Dictionary<string, int> weaponVotes = new Dictionary<string, int>();
