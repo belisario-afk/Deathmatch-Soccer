@@ -3000,7 +3000,11 @@ namespace Oxide.Plugins
         {
             CuiHelper.DestroyUi(player, "RoleSelectUI");
             var c = new CuiElementContainer();
-            string p; // Declare variable once at method scope
+            string p; // Declare variables once at method scope
+            string strikerBtn;
+            string playmakerBtn;
+            string enforcerBtn;
+            string goalieBtn;
             
             // Handle custom teams (don't use teamConfigs)
             if (team == "custom")
@@ -3013,20 +3017,20 @@ namespace Oxide.Plugins
                 
                 // Add role buttons (same as below)
                 // Row 1: Striker and Playmaker
-                string strikerBtn = c.Add(new CuiButton { Button = { Command = "select_role Striker", Color = "0.2 0.6 0.2 0.9" }, Text = { Text = "STRIKER", FontSize = 16, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.05 0.52", AnchorMax = "0.48 0.75" } }, p);
+                strikerBtn = c.Add(new CuiButton { Button = { Command = "select_role Striker", Color = "0.2 0.6 0.2 0.9" }, Text = { Text = "STRIKER", FontSize = 16, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.05 0.52", AnchorMax = "0.48 0.75" } }, p);
                 c.Add(new CuiLabel { Text = { Text = "⚡ Speed & Scoring", FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.8" }, RectTransform = { AnchorMin = "0 0.05", AnchorMax = "1 0.25" } }, strikerBtn);
                 c.Add(new CuiLabel { Text = { Text = "Bat • Python", FontSize = 10, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.6" }, RectTransform = { AnchorMin = "0 0.7", AnchorMax = "1 0.95" } }, strikerBtn);
                 
-                string playmakerBtn = c.Add(new CuiButton { Button = { Command = "select_role Playmaker", Color = "0.2 0.4 0.8 0.9" }, Text = { Text = "PLAYMAKER", FontSize = 16, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.52 0.52", AnchorMax = "0.95 0.75" } }, p);
+                playmakerBtn = c.Add(new CuiButton { Button = { Command = "select_role Playmaker", Color = "0.2 0.4 0.8 0.9" }, Text = { Text = "PLAYMAKER", FontSize = 16, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.52 0.52", AnchorMax = "0.95 0.75" } }, p);
                 c.Add(new CuiLabel { Text = { Text = "🎯 Ball Control", FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.8" }, RectTransform = { AnchorMin = "0 0.05", AnchorMax = "1 0.25" } }, playmakerBtn);
                 c.Add(new CuiLabel { Text = { Text = "Snowball • Crossbow", FontSize = 10, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.6" }, RectTransform = { AnchorMin = "0 0.7", AnchorMax = "1 0.95" } }, playmakerBtn);
                 
                 // Row 2: Enforcer and Goalie
-                string enforcerBtn = c.Add(new CuiButton { Button = { Command = "select_role Enforcer", Color = "0.6 0.2 0.6 0.9" }, Text = { Text = "ENFORCER", FontSize = 16, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.05 0.25", AnchorMax = "0.48 0.48" } }, p);
+                enforcerBtn = c.Add(new CuiButton { Button = { Command = "select_role Enforcer", Color = "0.6 0.2 0.6 0.9" }, Text = { Text = "ENFORCER", FontSize = 16, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.05 0.25", AnchorMax = "0.48 0.48" } }, p);
                 c.Add(new CuiLabel { Text = { Text = "🛡️ Tackling & Defense", FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.8" }, RectTransform = { AnchorMin = "0 0.05", AnchorMax = "1 0.25" } }, enforcerBtn);
                 c.Add(new CuiLabel { Text = { Text = "Nailgun • Bat", FontSize = 10, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.6" }, RectTransform = { AnchorMin = "0 0.7", AnchorMax = "1 0.95" } }, enforcerBtn);
                 
-                string goalieBtn = c.Add(new CuiButton { Button = { Command = "select_role Goalie", Color = "0.8 0.4 0.1 0.9" }, Text = { Text = "GOALIE", FontSize = 16, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.52 0.25", AnchorMax = "0.95 0.48" } }, p);
+                goalieBtn = c.Add(new CuiButton { Button = { Command = "select_role Goalie", Color = "0.8 0.4 0.1 0.9" }, Text = { Text = "GOALIE", FontSize = 16, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.52 0.25", AnchorMax = "0.95 0.48" } }, p);
                 c.Add(new CuiLabel { Text = { Text = "💊 Support & Healing", FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.8" }, RectTransform = { AnchorMin = "0 0.05", AnchorMax = "1 0.25" } }, goalieBtn);
                 c.Add(new CuiLabel { Text = { Text = "MGL • SPAS-12 • Flashlight", FontSize = 10, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.6" }, RectTransform = { AnchorMin = "0 0.7", AnchorMax = "1 0.95" } }, goalieBtn);
                 
@@ -3048,23 +3052,23 @@ namespace Oxide.Plugins
             
             // Row 1: Striker and Playmaker
             // Striker - Green (Speed & Scoring)
-            string strikerBtn = c.Add(new CuiButton { Button = { Command = "select_role Striker", Color = "0.2 0.6 0.2 0.9" }, Text = { Text = "STRIKER", FontSize = 16, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.05 0.52", AnchorMax = "0.48 0.75" } }, p);
+            strikerBtn = c.Add(new CuiButton { Button = { Command = "select_role Striker", Color = "0.2 0.6 0.2 0.9" }, Text = { Text = "STRIKER", FontSize = 16, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.05 0.52", AnchorMax = "0.48 0.75" } }, p);
             c.Add(new CuiLabel { Text = { Text = "⚡ Speed & Scoring", FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.8" }, RectTransform = { AnchorMin = "0 0.05", AnchorMax = "1 0.25" } }, strikerBtn);
             c.Add(new CuiLabel { Text = { Text = "Bat • Python", FontSize = 10, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.6" }, RectTransform = { AnchorMin = "0 0.7", AnchorMax = "1 0.95" } }, strikerBtn);
             
             // Playmaker - Blue (Ball Control)
-            string playmakerBtn = c.Add(new CuiButton { Button = { Command = "select_role Playmaker", Color = "0.2 0.4 0.8 0.9" }, Text = { Text = "PLAYMAKER", FontSize = 16, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.52 0.52", AnchorMax = "0.95 0.75" } }, p);
+            playmakerBtn = c.Add(new CuiButton { Button = { Command = "select_role Playmaker", Color = "0.2 0.4 0.8 0.9" }, Text = { Text = "PLAYMAKER", FontSize = 16, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.52 0.52", AnchorMax = "0.95 0.75" } }, p);
             c.Add(new CuiLabel { Text = { Text = "🎯 Ball Control", FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.8" }, RectTransform = { AnchorMin = "0 0.05", AnchorMax = "1 0.25" } }, playmakerBtn);
             c.Add(new CuiLabel { Text = { Text = "Snowball • Crossbow", FontSize = 10, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.6" }, RectTransform = { AnchorMin = "0 0.7", AnchorMax = "1 0.95" } }, playmakerBtn);
             
             // Row 2: Enforcer and Goalie
             // Enforcer - Purple (Defending)
-            string enforcerBtn = c.Add(new CuiButton { Button = { Command = "select_role Enforcer", Color = "0.6 0.2 0.6 0.9" }, Text = { Text = "ENFORCER", FontSize = 16, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.05 0.25", AnchorMax = "0.48 0.48" } }, p);
+            enforcerBtn = c.Add(new CuiButton { Button = { Command = "select_role Enforcer", Color = "0.6 0.2 0.6 0.9" }, Text = { Text = "ENFORCER", FontSize = 16, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.05 0.25", AnchorMax = "0.48 0.48" } }, p);
             c.Add(new CuiLabel { Text = { Text = "🛡️ Tackling & Defense", FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.8" }, RectTransform = { AnchorMin = "0 0.05", AnchorMax = "1 0.25" } }, enforcerBtn);
             c.Add(new CuiLabel { Text = { Text = "Nailgun • Bat", FontSize = 10, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.6" }, RectTransform = { AnchorMin = "0 0.7", AnchorMax = "1 0.95" } }, enforcerBtn);
             
             // Goalie - Orange (Support)
-            string goalieBtn = c.Add(new CuiButton { Button = { Command = "select_role Goalie", Color = "0.8 0.4 0.1 0.9" }, Text = { Text = "GOALIE", FontSize = 16, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.52 0.25", AnchorMax = "0.95 0.48" } }, p);
+            goalieBtn = c.Add(new CuiButton { Button = { Command = "select_role Goalie", Color = "0.8 0.4 0.1 0.9" }, Text = { Text = "GOALIE", FontSize = 16, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.52 0.25", AnchorMax = "0.95 0.48" } }, p);
             c.Add(new CuiLabel { Text = { Text = "💊 Support & Healing", FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.8" }, RectTransform = { AnchorMin = "0 0.05", AnchorMax = "1 0.25" } }, goalieBtn);
             c.Add(new CuiLabel { Text = { Text = "MGL • SPAS-12 • NVG", FontSize = 10, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.6" }, RectTransform = { AnchorMin = "0 0.7", AnchorMax = "1 0.95" } }, goalieBtn);
             
