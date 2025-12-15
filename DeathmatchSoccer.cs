@@ -1181,9 +1181,21 @@ namespace Oxide.Plugins
         [ChatCommand("createteam")]
         private void CmdCreateTeam(BasePlayer player, string command, string[] args)
         {
-            if (args.Length < 1)
+            // Show UI instead of direct command
+            ShowCreateTeamUI(player);
+        }
+        
+        [ConsoleCommand("createteam_submit")]
+        private void CmdCreateTeamSubmit(ConsoleSystem.Arg arg)
+        {
+            var player = arg.Player();
+            if (player == null || arg.Args == null || arg.Args.Length < 1) return;
+            
+            string teamName = arg.Args[0].Trim();
+            
+            if (string.IsNullOrEmpty(teamName))
             {
-                SendReply(player, "Usage: /createteam <team name>");
+                SendReply(player, "❌ Please enter a team name!");
                 return;
             }
             
@@ -1192,16 +1204,26 @@ namespace Oxide.Plugins
             {
                 if (team.OwnerID == player.userID)
                 {
-                    SendReply(player, $"You already own a team: {team.TeamName}");
+                    SendReply(player, $"❌ You already own a team: {team.TeamName}");
+                    CuiHelper.DestroyUi(player, "CreateTeamUI");
                     return;
                 }
             }
             
-            string teamName = string.Join(" ", args);
             if (teamName.Length > 30)
             {
-                SendReply(player, "Team name must be 30 characters or less.");
+                SendReply(player, "❌ Team name must be 30 characters or less.");
                 return;
+            }
+            
+            // Check if name already exists
+            foreach (var team in customTeams.Values)
+            {
+                if (team.TeamName.ToLower() == teamName.ToLower())
+                {
+                    SendReply(player, "❌ A team with that name already exists!");
+                    return;
+                }
             }
             
             // Create unique team ID
@@ -1220,12 +1242,23 @@ namespace Oxide.Plugins
             playerTeamAssignments[player.userID] = teamID;
             
             SaveCustomTeams();
+            UpdateOnlineCustomTeams();
+            
+            CuiHelper.DestroyUi(player, "CreateTeamUI");
             
             SendReply(player, $"✓ Created team: {teamName}");
             SendReply(player, "Use /teamkit to configure your team's kit");
             SendReply(player, "Use /addplayer <name> to add members");
             
             Puts($"[CustomTeam] {player.displayName} created team: {teamName} (ID: {teamID})");
+        }
+        
+        [ConsoleCommand("createteam_close")]
+        private void CmdCreateTeamClose(ConsoleSystem.Arg arg)
+        {
+            var player = arg.Player();
+            if (player == null) return;
+            CuiHelper.DestroyUi(player, "CreateTeamUI");
         }
         
         [ChatCommand("addplayer")]
@@ -1622,59 +1655,43 @@ namespace Oxide.Plugins
         [ChatCommand("teams")]
         private void CmdTeamsList(BasePlayer player, string command, string[] args)
         {
-            // If no args or not "list", show team selection
-            if (args.Length == 0 || args[0].ToLower() != "list")
+            // If no args or "list", show team list UI
+            if (args.Length == 0 || args[0].ToLower() == "list")
             {
-                ShowTeamSelectUI(player);
+                ShowTeamListUI(player);
                 return;
             }
             
-            // List all custom teams
-            if (customTeams.Count == 0)
+            // Otherwise show team selection
+            ShowTeamSelectUI(player);
+        }
+        
+        [ConsoleCommand("teamlist_close")]
+        private void CmdTeamListClose(ConsoleSystem.Arg arg)
+        {
+            var player = arg.Player();
+            if (player == null) return;
+            CuiHelper.DestroyUi(player, "TeamListUI");
+        }
+        
+        [ConsoleCommand("view_teamstats")]
+        private void CmdViewTeamStats(ConsoleSystem.Arg arg)
+        {
+            var player = arg.Player();
+            if (player == null || arg.Args == null || arg.Args.Length < 1) return;
+            
+            string teamID = arg.Args[0];
+            if (!customTeams.ContainsKey(teamID))
             {
-                SendReply(player, "No custom teams exist yet.");
-                SendReply(player, "Use /createteam <name> to create one!");
+                SendReply(player, "❌ Team not found!");
                 return;
             }
             
-            SendReply(player, "═══ CUSTOM TEAMS ═══");
+            CuiHelper.DestroyUi(player, "TeamListUI");
             
-            // Sort teams - online first
-            var onlineTeamsList = new List<CustomTeam>();
-            var offlineTeamsList = new List<CustomTeam>();
-            
-            foreach (var kvp in customTeams)
-            {
-                bool isOnline = onlineCustomTeams.Contains(kvp.Key);
-                if (isOnline)
-                    onlineTeamsList.Add(kvp.Value);
-                else
-                    offlineTeamsList.Add(kvp.Value);
-            }
-            
-            // Display online teams first
-            foreach (var team in onlineTeamsList)
-            {
-                int onlineCount = 0;
-                foreach (var memberID in team.Members)
-                {
-                    if (BasePlayer.FindByID(memberID) != null) onlineCount++;
-                }
-                
-                SendReply(player, $"🟢 {team.TeamName} (ONLINE)");
-                SendReply(player, $"   Owner: {GetPlayerName(team.OwnerID)}");
-                SendReply(player, $"   Members: {onlineCount}/{team.Members.Count} online");
-                SendReply(player, $"   Created: {team.CreatedAt:MM/dd/yyyy}");
-                SendReply(player, "");
-            }
-            
-            // Display offline teams
-            foreach (var team in offlineTeamsList)
-            {
-                SendReply(player, $"🔴 {team.TeamName} (offline)");
-                SendReply(player, $"   Owner: {GetPlayerName(team.OwnerID)}");
-                SendReply(player, $"   Members: 0/{team.Members.Count} online");
-                SendReply(player, "");
+            // Show detailed stats (use existing /teamstats logic)
+            var team = customTeams[teamID];
+            ShowTeamStatsDetailed(player, team);
             }
             
             SendReply(player, $"Total: {customTeams.Count} custom teams");
@@ -1748,6 +1765,53 @@ namespace Oxide.Plugins
             SendReply(player, "");
             SendReply(player, $"Created: {targetTeam.CreatedAt:MM/dd/yyyy HH:mm}");
         }
+        
+        private void ShowTeamStatsDetailed(BasePlayer player, CustomTeam team)
+        {
+            // Display detailed stats (same as above but called from UI)
+            SendReply(player, $"═══ {team.TeamName.ToUpper()} STATISTICS ═══");
+            SendReply(player, $"Owner: {GetPlayerName(team.OwnerID)}");
+            
+            // Count online members
+            int onlineCount = 0;
+            foreach (var memberID in team.Members)
+            {
+                if (BasePlayer.FindByID(memberID) != null) onlineCount++;
+            }
+            
+            SendReply(player, $"Members: {team.Members.Count}/6");
+            SendReply(player, $"Online: {onlineCount}/{team.Members.Count}");
+            SendReply(player, $"Status: {(onlineCount > 0 ? "ONLINE" : "offline")}");
+            SendReply(player, "");
+            
+            SendReply(player, "MEMBERS:");
+            foreach (var memberID in team.Members)
+            {
+                string memberName = GetPlayerName(memberID);
+                bool isOnline = BasePlayer.FindByID(memberID) != null;
+                string status = isOnline ? "✓ [ONLINE]" : "✗ [offline]";
+                SendReply(player, $"  {status} {memberName}");
+            }
+            
+            SendReply(player, "");
+            SendReply(player, "KIT CONFIGURATION:");
+            SendReply(player, $"  Tshirt: {(team.TshirtSkin > 0 ? team.TshirtSkin.ToString() : "default")}");
+            SendReply(player, $"  Pants: {(team.PantsSkin > 0 ? team.PantsSkin.ToString() : "default")}");
+            SendReply(player, $"  Torso: {(team.TorsoSkin > 0 ? team.TorsoSkin.ToString() : "default")}");
+            SendReply(player, $"  Facemask: {(team.FacemaskSkin > 0 ? team.FacemaskSkin.ToString() : "default")}");
+            SendReply(player, $"  Shoes: {(team.ShoesSkin > 0 ? team.ShoesSkin.ToString() : "default")}");
+            SendReply(player, $"  Goalie Jacket: {(team.GoalieJacketSkin > 0 ? team.GoalieJacketSkin.ToString() : "default")}");
+            SendReply(player, $"  Goalie Pants: {(team.GoaliePantsSkin > 0 ? team.GoaliePantsSkin.ToString() : "default")}");
+            
+            SendReply(player, "");
+            SendReply(player, $"Created: {team.CreatedAt:MM/dd/yyyy HH:mm}");
+        }
+        
+        [ChatCommand("listteams")]
+        private void CmdListTeams(BasePlayer player, string command, string[] args)
+        {
+            ShowTeamListUI(player);
+        }
 
         [ConsoleCommand("select_team")]
         private void CmdSelectTeam(ConsoleSystem.Arg arg)
@@ -1809,6 +1873,13 @@ namespace Oxide.Plugins
 
         private void CheckRole(BasePlayer player, string team)
         {
+            // Handle custom teams differently (they don't use default team lists)
+            if (team == "custom")
+            {
+                ShowRoleUI(player, team);
+                return;
+            }
+            
             // Count existing roles in the team
             int goalies = 0, strikers = 0, playmakers = 0, enforcers = 0;
             List<ulong> list = (team == "red") ? redTeam : (team == "blue") ? blueTeam : blackTeam;
@@ -1844,7 +1915,15 @@ namespace Oxide.Plugins
                 Vector3 goalPos;
                 Quaternion goalRot;
                 
-                if (redTeam.Contains(player.userID))
+                // Check if player is on a custom team
+                if (playerTeamAssignments.ContainsKey(player.userID))
+                {
+                    // Custom team players spawn at center for now
+                    // Will be handled by match system when teams are assigned to goals
+                    goalPos = centerPos;
+                    goalRot = Quaternion.identity;
+                }
+                else if (redTeam.Contains(player.userID))
                 {
                     goalPos = redGoalPos;
                     goalRot = redGoalRot;
@@ -3060,6 +3139,144 @@ namespace Oxide.Plugins
             // Instructions
             c.Add(new CuiLabel { Text = { Text = "Click a team to join the battle!", FontSize = 13, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.8" }, RectTransform = { AnchorMin = "0 0.06", AnchorMax = "1 0.12" } }, panel);
             c.Add(new CuiLabel { Text = { Text = "Custom teams appear when members are online", FontSize = 10, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.5" }, RectTransform = { AnchorMin = "0 0.02", AnchorMax = "1 0.06" } }, panel);
+            
+            CuiHelper.AddUi(player, c);
+        }
+        
+        // Show team creation UI
+        private void ShowCreateTeamUI(BasePlayer player)
+        {
+            CuiHelper.DestroyUi(player, "CreateTeamUI");
+            var c = new CuiElementContainer();
+            string panel = c.Add(new CuiPanel { Image = { Color = "0 0 0 0.95" }, RectTransform = { AnchorMin = "0.30 0.30", AnchorMax = "0.70 0.70" }, CursorEnabled = true }, "Overlay", "CreateTeamUI");
+            
+            // Title
+            c.Add(new CuiLabel { Text = { Text = "CREATE CUSTOM TEAM", FontSize = 22, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0 0.85", AnchorMax = "1 0.95" } }, panel);
+            
+            // Instructions
+            c.Add(new CuiLabel { Text = { Text = "Enter a unique name for your team", FontSize = 14, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.8" }, RectTransform = { AnchorMin = "0 0.75", AnchorMax = "1 0.82" } }, panel);
+            
+            // Input field
+            c.Add(new CuiPanel { Image = { Color = "0.2 0.2 0.2 0.9" }, RectTransform = { AnchorMin = "0.1 0.60", AnchorMax = "0.9 0.72" } }, panel, "InputBg");
+            c.Add(new CuiElement
+            {
+                Parent = "InputBg",
+                Components =
+                {
+                    new CuiInputFieldComponent { FontSize = 16, Align = TextAnchor.MiddleLeft, Command = "createteam_submit", Text = "", CharsLimit = 30 },
+                    new CuiRectTransformComponent { AnchorMin = "0.05 0", AnchorMax = "0.95 1" }
+                }
+            });
+            
+            // Guidelines
+            c.Add(new CuiLabel { Text = { Text = "Guidelines:", FontSize = 13, Align = TextAnchor.MiddleLeft, Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.1 0.50", AnchorMax = "0.9 0.57" } }, panel);
+            c.Add(new CuiLabel { Text = { Text = "• Maximum 30 characters", FontSize = 11, Align = TextAnchor.MiddleLeft, Color = "1 1 1 0.7" }, RectTransform = { AnchorMin = "0.1 0.44", AnchorMax = "0.9 0.50" } }, panel);
+            c.Add(new CuiLabel { Text = { Text = "• Unique name required", FontSize = 11, Align = TextAnchor.MiddleLeft, Color = "1 1 1 0.7" }, RectTransform = { AnchorMin = "0.1 0.38", AnchorMax = "0.9 0.44" } }, panel);
+            c.Add(new CuiLabel { Text = { Text = "• One team per owner", FontSize = 11, Align = TextAnchor.MiddleLeft, Color = "1 1 1 0.7" }, RectTransform = { AnchorMin = "0.1 0.32", AnchorMax = "0.9 0.38" } }, panel);
+            c.Add(new CuiLabel { Text = { Text = "• You become the team owner", FontSize = 11, Align = TextAnchor.MiddleLeft, Color = "1 1 1 0.7" }, RectTransform = { AnchorMin = "0.1 0.26", AnchorMax = "0.9 0.32" } }, panel);
+            c.Add(new CuiLabel { Text = { Text = "• Team size: 4-6 players", FontSize = 11, Align = TextAnchor.MiddleLeft, Color = "1 1 1 0.7" }, RectTransform = { AnchorMin = "0.1 0.20", AnchorMax = "0.9 0.26" } }, panel);
+            
+            // Close button
+            c.Add(new CuiButton { Button = { Command = "createteam_close", Color = "0.8 0.2 0.2 0.9" }, Text = { Text = "CLOSE", FontSize = 14, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.1 0.05", AnchorMax = "0.9 0.13" } }, panel);
+            
+            CuiHelper.AddUi(player, c);
+        }
+        
+        // Show team list UI
+        private void ShowTeamListUI(BasePlayer player)
+        {
+            CuiHelper.DestroyUi(player, "TeamListUI");
+            var c = new CuiElementContainer();
+            string panel = c.Add(new CuiPanel { Image = { Color = "0 0 0 0.95" }, RectTransform = { AnchorMin = "0.25 0.15", AnchorMax = "0.75 0.85" }, CursorEnabled = true }, "Overlay", "TeamListUI");
+            
+            // Title
+            c.Add(new CuiLabel { Text = { Text = "CUSTOM TEAMS", FontSize = 24, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0 0.92", AnchorMax = "1 0.98" } }, panel);
+            
+            // Get all custom teams sorted by online status
+            List<CustomTeam> allTeams = new List<CustomTeam>();
+            foreach (var kvp in customTeams)
+            {
+                allTeams.Add(kvp.Value);
+            }
+            
+            // Sort: online teams first
+            allTeams.Sort((a, b) =>
+            {
+                bool aOnline = onlineCustomTeams.Contains(a.TeamID);
+                bool bOnline = onlineCustomTeams.Contains(b.TeamID);
+                if (aOnline && !bOnline) return -1;
+                if (!aOnline && bOnline) return 1;
+                return 0;
+            });
+            
+            if (allTeams.Count == 0)
+            {
+                c.Add(new CuiLabel { Text = { Text = "No custom teams exist yet", FontSize = 16, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.6" }, RectTransform = { AnchorMin = "0 0.40", AnchorMax = "1 0.50" } }, panel);
+                c.Add(new CuiLabel { Text = { Text = "Use /createteam to create your own team!", FontSize = 13, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.5" }, RectTransform = { AnchorMin = "0 0.35", AnchorMax = "1 0.40" } }, panel);
+            }
+            else
+            {
+                float startY = 0.88f;
+                float height = 0.14f;
+                float spacing = 0.01f;
+                int index = 0;
+                
+                foreach (var team in allTeams)
+                {
+                    if (index >= 5) break; // Max 5 teams shown (scrolling could be added later)
+                    
+                    float minY = startY - (height + spacing) * (index + 1);
+                    float maxY = startY - (height + spacing) * index - spacing;
+                    
+                    bool isOnline = onlineCustomTeams.Contains(team.TeamID);
+                    string statusIndicator = isOnline ? "🟢" : "🔴";
+                    string statusText = isOnline ? "ONLINE" : "offline";
+                    string bgColor = isOnline ? "0.1 0.3 0.1 0.7" : "0.2 0.2 0.2 0.5";
+                    
+                    // Get online member count
+                    int onlineCount = 0;
+                    foreach (var memberID in team.Members)
+                    {
+                        var member = BasePlayer.FindByID(memberID);
+                        if (member != null && member.IsConnected) onlineCount++;
+                    }
+                    
+                    // Get owner name
+                    string ownerName = "Unknown";
+                    var owner = BasePlayer.FindByID(team.OwnerID);
+                    if (owner != null)
+                    {
+                        ownerName = owner.displayName;
+                    }
+                    
+                    // Team panel
+                    string teamPanel = c.Add(new CuiPanel { Image = { Color = bgColor }, RectTransform = { AnchorMin = $"0.02 {minY}", AnchorMax = $"0.98 {maxY}" } }, panel);
+                    
+                    // Team name and status
+                    c.Add(new CuiLabel { Text = { Text = $"{statusIndicator} {team.TeamName} ({statusText})", FontSize = 16, Align = TextAnchor.MiddleLeft, Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.02 0.65", AnchorMax = "0.70 0.95" } }, teamPanel);
+                    
+                    // Owner info
+                    c.Add(new CuiLabel { Text = { Text = $"Owner: {ownerName}", FontSize = 12, Align = TextAnchor.MiddleLeft, Color = "1 1 1 0.8" }, RectTransform = { AnchorMin = "0.02 0.40", AnchorMax = "0.50 0.65" } }, teamPanel);
+                    
+                    // Member count
+                    c.Add(new CuiLabel { Text = { Text = $"Members: {onlineCount}/{team.Members.Count} online", FontSize = 12, Align = TextAnchor.MiddleLeft, Color = "1 1 1 0.8" }, RectTransform = { AnchorMin = "0.02 0.15", AnchorMax = "0.50 0.40" } }, teamPanel);
+                    
+                    // Created date
+                    string createdDate = team.CreatedAt.ToString("MM/dd/yyyy");
+                    c.Add(new CuiLabel { Text = { Text = $"Created: {createdDate}", FontSize = 10, Align = TextAnchor.MiddleLeft, Color = "1 1 1 0.6" }, RectTransform = { AnchorMin = "0.52 0.40", AnchorMax = "0.98 0.65" } }, teamPanel);
+                    
+                    // View stats button
+                    c.Add(new CuiButton { Button = { Command = $"view_teamstats {team.TeamID}", Color = "0.2 0.6 0.8 0.9" }, Text = { Text = "View Stats", FontSize = 11, Align = TextAnchor.MiddleCenter }, RectTransform = { AnchorMin = "0.75 0.15", AnchorMax = "0.97 0.35" } }, teamPanel);
+                    
+                    index++;
+                }
+                
+                // Show count
+                c.Add(new CuiLabel { Text = { Text = $"Total Teams: {allTeams.Count}", FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.7" }, RectTransform = { AnchorMin = "0 0.06", AnchorMax = "1 0.10" } }, panel);
+            }
+            
+            // Close button
+            c.Add(new CuiButton { Button = { Command = "teamlist_close", Color = "0.8 0.2 0.2 0.9" }, Text = { Text = "CLOSE", FontSize = 14, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.35 0.01", AnchorMax = "0.65 0.05" } }, panel);
             
             CuiHelper.AddUi(player, c);
         }
