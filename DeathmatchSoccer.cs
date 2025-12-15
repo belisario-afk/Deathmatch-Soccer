@@ -1631,12 +1631,6 @@ namespace Oxide.Plugins
             Puts($"[CustomTeam] {player.displayName} deleted team {team.TeamName}");
         }
         
-        [ChatCommand("listteams")]
-        private void CmdListTeams(BasePlayer player, string command, string[] args)
-        {
-            CmdTeamsList(player, "teams", new string[] { "list" });
-        }
-        
         [ChatCommand("mycurrency")]
         private void CmdMyCurrency(BasePlayer player, string command, string[] args)
         {
