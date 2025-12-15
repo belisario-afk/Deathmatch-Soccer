@@ -569,6 +569,37 @@ namespace Oxide.Plugins
             
             Puts("DeathmatchSoccer: Hooks registered successfully");
             Puts("DeathmatchSoccer: OnEntityBuilt hook should now be active");
+            
+            // Start always-on goal visualization for all players
+            timer.Repeat(1.5f, 0, () => {
+                foreach (var player in BasePlayer.activePlayerList)
+                {
+                    if (player == null || !player.IsConnected) continue;
+                    
+                    if (redGoalPos != Vector3.zero) 
+                    {
+                        Color col = activeGoals["red"] ? Color.red : new Color(0.5f, 0, 0, 0.5f);
+                        DrawGoal(player, redGoalPos, redGoalRot, col, 1.7f);
+                    }
+                    if (blueGoalPos != Vector3.zero) 
+                    {
+                        Color col = activeGoals["blue"] ? Color.blue : new Color(0, 0, 0.5f, 0.5f);
+                        DrawGoal(player, blueGoalPos, blueGoalRot, col, 1.7f);
+                    }
+                    if (blackGoalPos1 != Vector3.zero) 
+                    {
+                        Color col = activeGoals["black1"] ? new Color(0.3f, 0.3f, 0.3f, 1f) : new Color(0.2f, 0.2f, 0.2f, 0.4f);
+                        DrawGoal(player, blackGoalPos1, blackGoalRot1, col, 1.7f);
+                    }
+                    if (blackGoalPos2 != Vector3.zero) 
+                    {
+                        Color col = activeGoals["black2"] ? new Color(0.3f, 0.3f, 0.3f, 1f) : new Color(0.2f, 0.2f, 0.2f, 0.4f);
+                        DrawGoal(player, blackGoalPos2, blackGoalRot2, col, 1.7f);
+                    }
+                }
+            });
+            
+            Puts("Goal visualization started - always on for all players");
         }
 
         void Unload()
@@ -909,36 +940,8 @@ namespace Oxide.Plugins
         private void CmdToggleDebug(BasePlayer player, string command, string[] args)
         {
             if (!player.IsAdmin) return;
-            debugActive = !debugActive;
-            if (debugTimer != null) debugTimer.Destroy();
-            
-            if (debugActive)
-            {
-                SendReply(player, "Debug ON - Showing all goals.");
-                debugTimer = timer.Repeat(1.0f, 0, () => {
-                    if (redGoalPos != Vector3.zero) 
-                    {
-                        Color col = activeGoals["red"] ? Color.red : new Color(0.5f, 0, 0, 0.3f);
-                        DrawGoal(player, redGoalPos, redGoalRot, col, 1.0f);
-                    }
-                    if (blueGoalPos != Vector3.zero) 
-                    {
-                        Color col = activeGoals["blue"] ? Color.blue : new Color(0, 0, 0.5f, 0.3f);
-                        DrawGoal(player, blueGoalPos, blueGoalRot, col, 1.0f);
-                    }
-                    if (blackGoalPos1 != Vector3.zero) 
-                    {
-                        Color col = activeGoals["black1"] ? Color.black : new Color(0.2f, 0.2f, 0.2f, 0.3f);
-                        DrawGoal(player, blackGoalPos1, blackGoalRot1, col, 1.0f);
-                    }
-                    if (blackGoalPos2 != Vector3.zero) 
-                    {
-                        Color col = activeGoals["black2"] ? Color.black : new Color(0.2f, 0.2f, 0.2f, 0.3f);
-                        DrawGoal(player, blackGoalPos2, blackGoalRot2, col, 1.0f);
-                    }
-                });
-            }
-            else SendReply(player, "Debug OFF.");
+            SendReply(player, "Goal debug is now ALWAYS ON for all players!");
+            SendReply(player, "Goals are automatically displayed with thick visualization 24/7.");
         }
 
         [ChatCommand("setskin")]
@@ -5147,13 +5150,25 @@ namespace Oxide.Plugins
         private void DrawGoal(BasePlayer player, Vector3 c, Quaternion r, Color col, float dur)
         {
             float hw=GoalWidth/2, hh=GoalHeight/2, hd=GoalDepth/2;
+            float thick = 0.15f; // Thickness offset for double lines
             Vector3[] p = new Vector3[8];
             p[0]=c+r*new Vector3(-hw,-hh,-hd); p[1]=c+r*new Vector3(hw,-hh,-hd); p[2]=c+r*new Vector3(hw,-hh,hd); p[3]=c+r*new Vector3(-hw,-hh,hd);
             p[4]=c+r*new Vector3(-hw,hh,-hd); p[5]=c+r*new Vector3(hw,hh,-hd); p[6]=c+r*new Vector3(hw,hh,hd); p[7]=c+r*new Vector3(-hw,hh,hd);
+            
+            // Draw main lines
             player.SendConsoleCommand("ddraw.line", dur, col, p[0], p[1]); player.SendConsoleCommand("ddraw.line", dur, col, p[1], p[2]); player.SendConsoleCommand("ddraw.line", dur, col, p[2], p[3]); player.SendConsoleCommand("ddraw.line", dur, col, p[3], p[0]);
             player.SendConsoleCommand("ddraw.line", dur, col, p[4], p[5]); player.SendConsoleCommand("ddraw.line", dur, col, p[5], p[6]); player.SendConsoleCommand("ddraw.line", dur, col, p[6], p[7]); player.SendConsoleCommand("ddraw.line", dur, col, p[7], p[4]);
             player.SendConsoleCommand("ddraw.line", dur, col, p[0], p[4]); player.SendConsoleCommand("ddraw.line", dur, col, p[1], p[5]); player.SendConsoleCommand("ddraw.line", dur, col, p[2], p[6]); player.SendConsoleCommand("ddraw.line", dur, col, p[3], p[7]);
-            player.SendConsoleCommand("ddraw.text", dur, col, c + new Vector3(0, hh + 2f, 0), "GOAL ZONE");
+            
+            // Draw thick parallel lines for better visibility (offset inward slightly)
+            Vector3 offset = r * new Vector3(thick, 0, 0);
+            player.SendConsoleCommand("ddraw.line", dur, col, p[0]+offset, p[1]-offset); player.SendConsoleCommand("ddraw.line", dur, col, p[2]-offset, p[3]+offset);
+            player.SendConsoleCommand("ddraw.line", dur, col, p[4]+offset, p[5]-offset); player.SendConsoleCommand("ddraw.line", dur, col, p[6]-offset, p[7]+offset);
+            offset = r * new Vector3(0, thick, 0);
+            player.SendConsoleCommand("ddraw.line", dur, col, p[0]+offset, p[4]+offset); player.SendConsoleCommand("ddraw.line", dur, col, p[1]+offset, p[5]+offset);
+            player.SendConsoleCommand("ddraw.line", dur, col, p[2]+offset, p[6]+offset); player.SendConsoleCommand("ddraw.line", dur, col, p[3]+offset, p[7]+offset);
+            
+            player.SendConsoleCommand("ddraw.text", dur, col, c + new Vector3(0, hh + 2f, 0), "<size=20>GOAL ZONE</size>");
         }
         
         private void CallMiddleware(string text)
