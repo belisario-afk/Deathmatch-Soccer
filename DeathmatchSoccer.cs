@@ -1580,6 +1580,157 @@ namespace Oxide.Plugins
             SendReply(player, $"✓ Deleted team: {team.TeamName}");
             Puts($"[CustomTeam] {player.displayName} deleted team {team.TeamName}");
         }
+        
+        [ChatCommand("listteams")]
+        private void CmdListTeams(BasePlayer player, string command, string[] args)
+        {
+            CmdTeamsList(player, "teams", new string[] { "list" });
+        }
+        
+        [ChatCommand("mycurrency")]
+        private void CmdMyCurrency(BasePlayer player, string command, string[] args)
+        {
+            if (!playerCurrency.ContainsKey(player.userID))
+            {
+                SendReply(player, "Balance: 0 coins");
+                SendReply(player, "Ask an admin to give you currency with /givecurrency");
+                return;
+            }
+            
+            int balance = playerCurrency[player.userID];
+            SendReply(player, $"═══ YOUR CURRENCY ═══");
+            SendReply(player, $"Balance: {balance} coins");
+        }
+        
+        [ChatCommand("teams")]
+        private void CmdTeamsList(BasePlayer player, string command, string[] args)
+        {
+            // If no args or not "list", show team selection
+            if (args.Length == 0 || args[0].ToLower() != "list")
+            {
+                ShowTeamSelectUI(player);
+                return;
+            }
+            
+            // List all custom teams
+            if (customTeams.Count == 0)
+            {
+                SendReply(player, "No custom teams exist yet.");
+                SendReply(player, "Use /createteam <name> to create one!");
+                return;
+            }
+            
+            SendReply(player, "═══ CUSTOM TEAMS ═══");
+            
+            // Sort teams - online first
+            var onlineTeamsList = new List<CustomTeam>();
+            var offlineTeamsList = new List<CustomTeam>();
+            
+            foreach (var kvp in customTeams)
+            {
+                bool isOnline = onlineCustomTeams.Contains(kvp.Key);
+                if (isOnline)
+                    onlineTeamsList.Add(kvp.Value);
+                else
+                    offlineTeamsList.Add(kvp.Value);
+            }
+            
+            // Display online teams first
+            foreach (var team in onlineTeamsList)
+            {
+                int onlineCount = 0;
+                foreach (var memberID in team.Members)
+                {
+                    if (BasePlayer.FindByID(memberID) != null) onlineCount++;
+                }
+                
+                SendReply(player, $"🟢 {team.TeamName} (ONLINE)");
+                SendReply(player, $"   Owner: {GetPlayerName(team.OwnerID)}");
+                SendReply(player, $"   Members: {onlineCount}/{team.Members.Count} online");
+                SendReply(player, $"   Created: {team.CreatedAt:MM/dd/yyyy}");
+                SendReply(player, "");
+            }
+            
+            // Display offline teams
+            foreach (var team in offlineTeamsList)
+            {
+                SendReply(player, $"🔴 {team.TeamName} (offline)");
+                SendReply(player, $"   Owner: {GetPlayerName(team.OwnerID)}");
+                SendReply(player, $"   Members: 0/{team.Members.Count} online");
+                SendReply(player, "");
+            }
+            
+            SendReply(player, $"Total: {customTeams.Count} custom teams");
+        }
+        
+        [ChatCommand("teamstats")]
+        private void CmdTeamStats(BasePlayer player, string command, string[] args)
+        {
+            if (args.Length == 0)
+            {
+                SendReply(player, "Usage: /teamstats <teamname>");
+                SendReply(player, "Or use /teams list to see all teams");
+                return;
+            }
+            
+            string searchName = string.Join(" ", args).ToLower();
+            CustomTeam targetTeam = null;
+            
+            // Find team by name
+            foreach (var team in customTeams.Values)
+            {
+                if (team.TeamName.ToLower().Contains(searchName))
+                {
+                    targetTeam = team;
+                    break;
+                }
+            }
+            
+            if (targetTeam == null)
+            {
+                SendReply(player, $"Team not found: {searchName}");
+                SendReply(player, "Use /teams list to see all teams");
+                return;
+            }
+            
+            // Display detailed stats
+            SendReply(player, $"═══ {targetTeam.TeamName.ToUpper()} STATISTICS ═══");
+            SendReply(player, $"Owner: {GetPlayerName(targetTeam.OwnerID)}");
+            
+            // Count online members
+            int onlineCount = 0;
+            foreach (var memberID in targetTeam.Members)
+            {
+                if (BasePlayer.FindByID(memberID) != null) onlineCount++;
+            }
+            
+            SendReply(player, $"Members: {targetTeam.Members.Count}/6");
+            SendReply(player, $"Online: {onlineCount}/{targetTeam.Members.Count}");
+            SendReply(player, $"Status: {(onlineCount > 0 ? "ONLINE" : "offline")}");
+            SendReply(player, "");
+            
+            SendReply(player, "MEMBERS:");
+            foreach (var memberID in targetTeam.Members)
+            {
+                string memberName = GetPlayerName(memberID);
+                bool isOnline = BasePlayer.FindByID(memberID) != null;
+                string status = isOnline ? "✓ [ONLINE]" : "✗ [offline]";
+                SendReply(player, $"  {status} {memberName}");
+            }
+            
+            SendReply(player, "");
+            SendReply(player, "KIT CONFIGURATION:");
+            SendReply(player, $"  Tshirt: {(targetTeam.TshirtSkin > 0 ? targetTeam.TshirtSkin.ToString() : "default")}");
+            SendReply(player, $"  Pants: {(targetTeam.PantsSkin > 0 ? targetTeam.PantsSkin.ToString() : "default")}");
+            SendReply(player, $"  Torso: {(targetTeam.TorsoSkin > 0 ? targetTeam.TorsoSkin.ToString() : "default")}");
+            SendReply(player, $"  Facemask: {(targetTeam.FacemaskSkin > 0 ? targetTeam.FacemaskSkin.ToString() : "default")}");
+            SendReply(player, $"  Shoes: {(targetTeam.ShoesSkin > 0 ? targetTeam.ShoesSkin.ToString() : "default")}");
+            SendReply(player, $"  Goalie Jacket: {(targetTeam.GoalieJacketSkin > 0 ? targetTeam.GoalieJacketSkin.ToString() : "default")}");
+            SendReply(player, $"  Goalie Pants: {(targetTeam.GoaliePantsSkin > 0 ? targetTeam.GoaliePantsSkin.ToString() : "default")}");
+            
+            SendReply(player, "");
+            SendReply(player, $"Created: {targetTeam.CreatedAt:MM/dd/yyyy HH:mm}");
+        }
 
         [ConsoleCommand("select_team")]
         private void CmdSelectTeam(ConsoleSystem.Arg arg)
