@@ -3529,6 +3529,51 @@ namespace Oxide.Plugins
         private string GetImg(string name) { return (ImageLibrary != null) ? (string)ImageLibrary.Call("GetImage", name) : ""; }
 
         private void RefreshScoreboardAll() { foreach (var player in BasePlayer.activePlayerList) UpdateScoreUI(player); }
+        
+        // Helper method to get team emblem URL for scoreboard backgrounds
+        private string GetTeamEmblemUrl(string teamName)
+        {
+            if (string.IsNullOrEmpty(teamName)) return "";
+            
+            // Check if custom team
+            foreach (var team in customTeams.Values)
+            {
+                if (team.TeamName.ToLower() == teamName.ToLower())
+                {
+                    if (!string.IsNullOrEmpty(team.EmblemUrl))
+                    {
+                        return team.EmblemUrl;
+                    }
+                }
+            }
+            
+            // Check if default team - get first player's emblem
+            if (EmblemEditor != null)
+            {
+                try
+                {
+                    if (teamName == "red" && redTeam.Count > 0)
+                    {
+                        string url = (string)EmblemEditor.Call("GetEquippedEmblem", redTeam[0]);
+                        if (!string.IsNullOrEmpty(url)) return url;
+                    }
+                    else if (teamName == "blue" && blueTeam.Count > 0)
+                    {
+                        string url = (string)EmblemEditor.Call("GetEquippedEmblem", blueTeam[0]);
+                        if (!string.IsNullOrEmpty(url)) return url;
+                    }
+                    else if (teamName == "black" && blackTeam.Count > 0)
+                    {
+                        string url = (string)EmblemEditor.Call("GetEquippedEmblem", blackTeam[0]);
+                        if (!string.IsNullOrEmpty(url)) return url;
+                    }
+                }
+                catch { /* Ignore errors */ }
+            }
+            
+            // No emblem found - return empty (will use fallback)
+            return "";
+        }
 
         private void UpdateScoreUI(BasePlayer player)
         {
@@ -3590,15 +3635,77 @@ namespace Oxide.Plugins
                 int leftScore = GetTeamScore(leftTeam);
                 int rightScore = GetTeamScore(rightTeam);
                 
-                // Left Team
-                container.Add(new CuiLabel { Text = { Text = leftConfig.Tag, FontSize = 10, Align = TextAnchor.UpperCenter, Color = leftConfig.Color + " 0.8" }, RectTransform = { AnchorMin = "0.1 0.5", AnchorMax = "0.4 0.8" } }, "SoccerScoreboard");
+                // Get team emblems for backgrounds
+                string leftEmblemUrl = GetTeamEmblemUrl(leftTeam);
+                string rightEmblemUrl = GetTeamEmblemUrl(rightTeam);
+                
+                // Left Team Background (emblem or color fallback)
+                if (!string.IsNullOrEmpty(leftEmblemUrl))
+                {
+                    container.Add(new CuiElement
+                    {
+                        Name = "LeftEmblemBG",
+                        Parent = "SoccerScoreboard",
+                        Components =
+                        {
+                            new CuiRawImageComponent { Url = leftEmblemUrl, Color = "1 1 1 0.3" },
+                            new CuiRectTransformComponent { AnchorMin = "0 0", AnchorMax = "0.47 1" }
+                        }
+                    });
+                }
+                else
+                {
+                    // Fallback: colored background
+                    container.Add(new CuiPanel
+                    {
+                        Image = { Color = leftConfig.Color + " 0.15" },
+                        RectTransform = { AnchorMin = "0 0", AnchorMax = "0.47 1" },
+                        CursorEnabled = false
+                    }, "SoccerScoreboard", "LeftEmblemBG");
+                }
+                
+                // Right Team Background (emblem or color fallback)
+                if (!string.IsNullOrEmpty(rightEmblemUrl))
+                {
+                    container.Add(new CuiElement
+                    {
+                        Name = "RightEmblemBG",
+                        Parent = "SoccerScoreboard",
+                        Components =
+                        {
+                            new CuiRawImageComponent { Url = rightEmblemUrl, Color = "1 1 1 0.3" },
+                            new CuiRectTransformComponent { AnchorMin = "0.53 0", AnchorMax = "1 1" }
+                        }
+                    });
+                }
+                else
+                {
+                    // Fallback: colored background
+                    container.Add(new CuiPanel
+                    {
+                        Image = { Color = rightConfig.Color + " 0.15" },
+                        RectTransform = { AnchorMin = "0.53 0", AnchorMax = "1 1" },
+                        CursorEnabled = false
+                    }, "SoccerScoreboard", "RightEmblemBG");
+                }
+                
+                // Center divider panel (VS section)
+                container.Add(new CuiPanel
+                {
+                    Image = { Color = "0 0 0 0.9" },
+                    RectTransform = { AnchorMin = "0.47 0", AnchorMax = "0.53 1" },
+                    CursorEnabled = false
+                }, "SoccerScoreboard", "CenterDivider");
+                
+                // Left Team Labels (on top of background)
+                container.Add(new CuiLabel { Text = { Text = leftConfig.Tag, FontSize = 10, Align = TextAnchor.UpperCenter, Color = leftConfig.Color + " 1" }, RectTransform = { AnchorMin = "0.1 0.5", AnchorMax = "0.4 0.8" } }, "SoccerScoreboard");
                 container.Add(new CuiLabel { Text = { Text = leftScore.ToString(), FontSize = 28, Align = TextAnchor.MiddleCenter, Color = leftConfig.Color + " 1", Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.1 0.0", AnchorMax = "0.4 0.5" } }, "SoccerScoreboard");
                 
-                // VS
-                container.Add(new CuiLabel { Text = { Text = "VS", FontSize = 14, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.6" }, RectTransform = { AnchorMin = "0.45 0.2", AnchorMax = "0.55 0.5" } }, "SoccerScoreboard");
+                // VS (on center divider)
+                container.Add(new CuiLabel { Text = { Text = "VS", FontSize = 14, Align = TextAnchor.MiddleCenter, Color = "1 1 1 1" }, RectTransform = { AnchorMin = "0.47 0.2", AnchorMax = "0.53 0.5" } }, "SoccerScoreboard");
                 
-                // Right Team
-                container.Add(new CuiLabel { Text = { Text = rightConfig.Tag, FontSize = 10, Align = TextAnchor.UpperCenter, Color = rightConfig.Color + " 0.8" }, RectTransform = { AnchorMin = "0.6 0.5", AnchorMax = "0.9 0.8" } }, "SoccerScoreboard");
+                // Right Team Labels (on top of background)
+                container.Add(new CuiLabel { Text = { Text = rightConfig.Tag, FontSize = 10, Align = TextAnchor.UpperCenter, Color = rightConfig.Color + " 1" }, RectTransform = { AnchorMin = "0.6 0.5", AnchorMax = "0.9 0.8" } }, "SoccerScoreboard");
                 container.Add(new CuiLabel { Text = { Text = rightScore.ToString(), FontSize = 28, Align = TextAnchor.MiddleCenter, Color = rightConfig.Color + " 1", Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.6 0.0", AnchorMax = "0.9 0.5" } }, "SoccerScoreboard");
                 
                 // Waiting team indicator
