@@ -152,8 +152,8 @@ namespace Oxide.Plugins
         private Quaternion goal1Rot, goal2Rot;
         private string goal1Team = ""; // Which team is assigned to Goal 1
         private string goal2Team = ""; // Which team is assigned to Goal 2
-        private Color goal1Color = Color.white; // Dynamic color for Goal 1
-        private Color goal2Color = Color.white; // Dynamic color for Goal 2
+        private string goal1Color = "1 1 1"; // Dynamic color for Goal 1 (RGB string)
+        private string goal2Color = "1 1 1"; // Dynamic color for Goal 2 (RGB string)
         
         private int scoreRed = 0;
         private int scoreBlue = 0;
@@ -597,11 +597,11 @@ namespace Oxide.Plugins
                     
                     if (goal1Pos != Vector3.zero) 
                     {
-                        DrawGoal(player, goal1Pos, goal1Rot, goal1Color, 1.7f);
+                        DrawGoal(player, goal1Pos, goal1Rot, ParseColor(goal1Color), 1.7f);
                     }
                     if (goal2Pos != Vector3.zero) 
                     {
-                        DrawGoal(player, goal2Pos, goal2Rot, goal2Color, 1.7f);
+                        DrawGoal(player, goal2Pos, goal2Rot, ParseColor(goal2Color), 1.7f);
                     }
                     
                     // Show tournament bracket UI if tournament is active
@@ -781,10 +781,10 @@ namespace Oxide.Plugins
             
             Puts($"[AssignTeamsToGoals] Red:{redActive} Blue:{blueActive} Black:{blackActive} Custom:{activeCustomTeams.Count}");
             
-            // Default colors
-            Color redColor = new Color(1f, 0f, 0f);      // Bright red
-            Color blueColor = new Color(0f, 0.5f, 1f);   // Cyan blue
-            Color blackColor = new Color(0.2f, 0.2f, 0.2f); // Dark gray
+            // Default colors (as strings)
+            string redColor = teamConfigs["red"].Color;      // "1 0.2 0.2"
+            string blueColor = teamConfigs["blue"].Color;    // "0.2 0.4 1"
+            string blackColor = teamConfigs["black"].Color;  // "0.2 0.2 0.2"
             
             // PRIORITY 1: Custom teams (2+ online) → Custom vs Custom
             if (activeCustomTeams.Count >= 2)
@@ -5787,6 +5787,27 @@ namespace Oxide.Plugins
         {
             // GetTeamColor already returns a string, so just return it directly
             return GetTeamColor(teamIdentifier);
+        }
+        
+        private Color ParseColor(string colorStr)
+        {
+            if (string.IsNullOrEmpty(colorStr)) return Color.white;
+            
+            string[] rgb = colorStr.Split(' ');
+            if (rgb.Length < 3) return Color.white;
+            
+            try
+            {
+                return new Color(
+                    float.Parse(rgb[0]), 
+                    float.Parse(rgb[1]), 
+                    float.Parse(rgb[2])
+                );
+            }
+            catch
+            {
+                return Color.white;
+            }
         }
         
         private void RotateTeams(string winner, string loser)
