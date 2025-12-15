@@ -1137,16 +1137,28 @@ namespace Oxide.Plugins
             int team1Score = 0;
             int team2Score = 0;
             
-            if (goal1Team == team1) team1Score = goal1Score;
-            else if (goal1Team == team2) team2Score = goal1Score;
+            // Get score for team assigned to goal1
+            if (goal1Team == team1) team1Score = GetScoreForTeam(goal1Team);
+            else if (goal1Team == team2) team2Score = GetScoreForTeam(goal1Team);
             
-            if (goal2Team == team1) team1Score = goal2Score;
-            else if (goal2Team == team2) team2Score = goal2Score;
+            // Get score for team assigned to goal2
+            if (goal2Team == team1) team1Score = GetScoreForTeam(goal2Team);
+            else if (goal2Team == team2) team2Score = GetScoreForTeam(goal2Team);
             
             if (team1Score > team2Score) return team1;
             if (team2Score > team1Score) return team2;
             
             return null; // Tie or no score yet
+        }
+        
+        private int GetScoreForTeam(string teamName)
+        {
+            if (teamName == "red") return scoreRed;
+            if (teamName == "blue") return scoreBlue;
+            if (teamName == "black") return scoreBlack;
+            
+            // Custom teams - currently not tracked separately in tournament mode
+            return 0;
         }
 
         [ChatCommand("goal_size")]
