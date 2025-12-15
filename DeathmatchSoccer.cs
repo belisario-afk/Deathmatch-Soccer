@@ -1433,6 +1433,150 @@ namespace Oxide.Plugins
             
             Puts($"[Currency] Admin {player.displayName} gave {amount} coins to {target.displayName}");
         }
+        
+        [ChatCommand("teamkit")]
+        private void CmdTeamKit(BasePlayer player, string command, string[] args)
+        {
+            // Find player's team
+            if (!playerTeamAssignments.ContainsKey(player.userID))
+            {
+                SendReply(player, "You're not on a custom team. Use /createteam first.");
+                return;
+            }
+            
+            string teamID = playerTeamAssignments[player.userID];
+            var team = customTeams[teamID];
+            
+            // Check if they are the owner
+            if (team.OwnerID != player.userID)
+            {
+                SendReply(player, "Only the team owner can configure the kit.");
+                return;
+            }
+            
+            if (args.Length < 2)
+            {
+                SendReply(player, "═══ Team Kit Configuration ═══");
+                SendReply(player, "Usage: /teamkit <item> <skin ID>");
+                SendReply(player, "");
+                SendReply(player, "Items:");
+                SendReply(player, "  tshirt - Long T-Shirt");
+                SendReply(player, "  pants - Pants");
+                SendReply(player, "  torso - Metal Plate Torso");
+                SendReply(player, "  facemask - Metal Facemask");
+                SendReply(player, "  shoes - Burlap Shoes");
+                SendReply(player, "  goalie_jacket - Heavy Plate Jacket (Goalie)");
+                SendReply(player, "  goalie_pants - Heavy Plate Pants (Goalie)");
+                SendReply(player, "");
+                SendReply(player, "Example: /teamkit tshirt 3619180626");
+                SendReply(player, "");
+                SendReply(player, "Current Kit:");
+                SendReply(player, $"  Tshirt: {team.TshirtSkin}");
+                SendReply(player, $"  Pants: {team.PantsSkin}");
+                SendReply(player, $"  Torso: {team.TorsoSkin}");
+                SendReply(player, $"  Facemask: {team.FacemaskSkin}");
+                SendReply(player, $"  Shoes: {team.ShoesSkin}");
+                SendReply(player, $"  Goalie Jacket: {team.GoalieJacketSkin}");
+                SendReply(player, $"  Goalie Pants: {team.GoaliePantsSkin}");
+                return;
+            }
+            
+            string item = args[0].ToLower();
+            ulong skinID;
+            
+            if (!ulong.TryParse(args[1], out skinID))
+            {
+                SendReply(player, "Invalid skin ID. Must be a number.");
+                return;
+            }
+            
+            bool updated = false;
+            switch (item)
+            {
+                case "tshirt":
+                    team.TshirtSkin = skinID;
+                    updated = true;
+                    break;
+                case "pants":
+                    team.PantsSkin = skinID;
+                    updated = true;
+                    break;
+                case "torso":
+                    team.TorsoSkin = skinID;
+                    updated = true;
+                    break;
+                case "facemask":
+                    team.FacemaskSkin = skinID;
+                    updated = true;
+                    break;
+                case "shoes":
+                    team.ShoesSkin = skinID;
+                    updated = true;
+                    break;
+                case "goalie_jacket":
+                    team.GoalieJacketSkin = skinID;
+                    updated = true;
+                    break;
+                case "goalie_pants":
+                    team.GoaliePantsSkin = skinID;
+                    updated = true;
+                    break;
+                default:
+                    SendReply(player, $"Unknown item: {item}");
+                    SendReply(player, "Valid items: tshirt, pants, torso, facemask, shoes, goalie_jacket, goalie_pants");
+                    return;
+            }
+            
+            if (updated)
+            {
+                SaveCustomTeams();
+                SendReply(player, $"✓ Updated {item} skin to {skinID}");
+                SendReply(player, "Players will see the new kit on next spawn.");
+                Puts($"[CustomTeam] {player.displayName} updated {item} skin for team {team.TeamName}");
+            }
+        }
+        
+        [ChatCommand("deleteteam")]
+        private void CmdDeleteTeam(BasePlayer player, string command, string[] args)
+        {
+            // Find player's team
+            if (!playerTeamAssignments.ContainsKey(player.userID))
+            {
+                SendReply(player, "You don't own a team.");
+                return;
+            }
+            
+            string teamID = playerTeamAssignments[player.userID];
+            var team = customTeams[teamID];
+            
+            // Check if they are the owner
+            if (team.OwnerID != player.userID)
+            {
+                SendReply(player, "Only the team owner can delete the team.");
+                return;
+            }
+            
+            // Remove all member assignments
+            foreach (var memberID in team.Members)
+            {
+                playerTeamAssignments.Remove(memberID);
+                
+                // Strip kit if online
+                var member = BasePlayer.FindByID(memberID);
+                if (member != null && member.IsConnected)
+                {
+                    member.inventory.Strip();
+                    SendReply(member, $"Team {team.TeamName} has been deleted by the owner.");
+                }
+            }
+            
+            // Remove team
+            customTeams.Remove(teamID);
+            SaveCustomTeams();
+            
+            SendReply(player, $"✓ Deleted team: {team.TeamName}");
+            Puts($"[CustomTeam] {player.displayName} deleted team {team.TeamName}");
+        }
 
         [ConsoleCommand("select_team")]
         private void CmdSelectTeam(ConsoleSystem.Arg arg)
