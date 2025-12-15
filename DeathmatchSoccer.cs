@@ -1692,9 +1692,6 @@ namespace Oxide.Plugins
             // Show detailed stats (use existing /teamstats logic)
             var team = customTeams[teamID];
             ShowTeamStatsDetailed(player, team);
-            }
-            
-            SendReply(player, $"Total: {customTeams.Count} custom teams");
         }
         
         [ChatCommand("teamstats")]
