@@ -760,10 +760,26 @@ namespace Oxide.Plugins
             }
         }
 
-        [ChatCommand("set_red")] private void CmdSetRed(BasePlayer p, string c, string[] a) { if(p.IsAdmin){ redGoalPos=p.transform.position; redGoalRot=p.transform.rotation; SendReply(p, "Red Goal Set."); DrawGoal(p, redGoalPos, redGoalRot, Color.red, 5f); }}
-        [ChatCommand("set_blue")] private void CmdSetBlue(BasePlayer p, string c, string[] a) { if(p.IsAdmin){ blueGoalPos=p.transform.position; blueGoalRot=p.transform.rotation; SendReply(p, "Blue Goal Set."); DrawGoal(p, blueGoalPos, blueGoalRot, Color.blue, 5f); }}
-        [ChatCommand("set_black1")] private void CmdSetBlack1(BasePlayer p, string c, string[] a) { if(p.IsAdmin){ blackGoalPos1=p.transform.position; blackGoalRot1=p.transform.rotation; SendReply(p, "Black Goal 1 Set (at Red position)."); DrawGoal(p, blackGoalPos1, blackGoalRot1, Color.black, 5f); }}
-        [ChatCommand("set_black2")] private void CmdSetBlack2(BasePlayer p, string c, string[] a) { if(p.IsAdmin){ blackGoalPos2=p.transform.position; blackGoalRot2=p.transform.rotation; SendReply(p, "Black Goal 2 Set (at Blue position)."); DrawGoal(p, blackGoalPos2, blackGoalRot2, Color.black, 5f); }}
+        // DYNAMIC GOAL COMMANDS - Set Goal 1 and Goal 2
+        [ChatCommand("set_goal1")] 
+        private void CmdSetGoal1(BasePlayer p, string c, string[] a) 
+        { 
+            if(!p.IsAdmin) return;
+            goal1Pos = p.transform.position; 
+            goal1Rot = p.transform.rotation; 
+            SendReply(p, "Goal 1 Set! Position saved. Use /save_goals to persist.");
+            DrawGoal(p, goal1Pos, goal1Rot, Color.cyan, 5f);
+        }
+        
+        [ChatCommand("set_goal2")] 
+        private void CmdSetGoal2(BasePlayer p, string c, string[] a) 
+        { 
+            if(!p.IsAdmin) return;
+            goal2Pos = p.transform.position; 
+            goal2Rot = p.transform.rotation; 
+            SendReply(p, "Goal 2 Set! Position saved. Use /save_goals to persist.");
+            DrawGoal(p, goal2Pos, goal2Rot, Color.magenta, 5f);
+        }
         [ChatCommand("set_center")] private void CmdSetCenter(BasePlayer p, string c, string[] a) { if(p.IsAdmin){ centerPos=p.transform.position; SendReply(p, "Center Set."); }}
         [ChatCommand("set_lobby_spawn")] 
         private void CmdSetLobbySpawn(BasePlayer p, string c, string[] a) 
