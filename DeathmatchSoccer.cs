@@ -327,16 +327,13 @@ namespace Oxide.Plugins
         // ==========================================
         private class ArenaData
         {
-            public float Rx, Ry, Rz; // Red Pos
-            public float Bx, By, Bz; // Blue Pos
-            public float Bl1x, Bl1y, Bl1z; // Black1 Pos (at red position)
-            public float Bl2x, Bl2y, Bl2z; // Black2 Pos (at blue position)
+            // Dynamic Goal System
+            public float G1x, G1y, G1z; // Goal 1 Position
+            public float G2x, G2y, G2z; // Goal 2 Position
+            public float G1qx, G1qy, G1qz, G1qw; // Goal 1 Rotation
+            public float G2qx, G2qy, G2qz, G2qw; // Goal 2 Rotation
             public float Cx, Cy, Cz; // Center Pos
-            public float Rqx, Rqy, Rqz, Rqw; // Red Rot
-            public float Bqx, Bqy, Bqz, Bqw; // Blue Rot
-            public float Bl1qx, Bl1qy, Bl1qz, Bl1qw; // Black1 Rot
-            public float Bl2qx, Bl2qy, Bl2qz, Bl2qw; // Black2 Rot
-            public float Gw, Gh, Gd; // Dimensions
+            public float Gw, Gh, Gd; // Goal Dimensions
             public float Lbx, Lby, Lbz; // Lobby spawn position
             public float Lsx, Lsy, Lsz; // Loser spawn position
         }
@@ -346,19 +343,17 @@ namespace Oxide.Plugins
             Puts($"[Data] Saving arena data to file");
             var data = new ArenaData
             {
-                Rx = redGoalPos.x, Ry = redGoalPos.y, Rz = redGoalPos.z,
-                Bx = blueGoalPos.x, By = blueGoalPos.y, Bz = blueGoalPos.z,
-                Bl1x = blackGoalPos1.x, Bl1y = blackGoalPos1.y, Bl1z = blackGoalPos1.z,
-                Bl2x = blackGoalPos2.x, Bl2y = blackGoalPos2.y, Bl2z = blackGoalPos2.z,
+                G1x = goal1Pos.x, G1y = goal1Pos.y, G1z = goal1Pos.z,
+                G2x = goal2Pos.x, G2y = goal2Pos.y, G2z = goal2Pos.z,
+                G1qx = goal1Rot.x, G1qy = goal1Rot.y, G1qz = goal1Rot.z, G1qw = goal1Rot.w,
+                G2qx = goal2Rot.x, G2qy = goal2Rot.y, G2qz = goal2Rot.z, G2qw = goal2Rot.w,
                 Cx = centerPos.x, Cy = centerPos.y, Cz = centerPos.z,
-                Rqx = redGoalRot.x, Rqy = redGoalRot.y, Rqz = redGoalRot.z, Rqw = redGoalRot.w,
-                Bqx = blueGoalRot.x, Bqy = blueGoalRot.y, Bqz = blueGoalRot.z, Bqw = blueGoalRot.w,
-                Bl1qx = blackGoalRot1.x, Bl1qy = blackGoalRot1.y, Bl1qz = blackGoalRot1.z, Bl1qw = blackGoalRot1.w,
-                Bl2qx = blackGoalRot2.x, Bl2qy = blackGoalRot2.y, Bl2qz = blackGoalRot2.z, Bl2qw = blackGoalRot2.w,
                 Gw = GoalWidth, Gh = GoalHeight, Gd = GoalDepth,
                 Lbx = lobbySpawnPos.x, Lby = lobbySpawnPos.y, Lbz = lobbySpawnPos.z,
                 Lsx = loserSpawnPos.x, Lsy = loserSpawnPos.y, Lsz = loserSpawnPos.z
             };
+            Puts($"[Data] Goal 1 saved: {goal1Pos}");
+            Puts($"[Data] Goal 2 saved: {goal2Pos}");
             Puts($"[Data] Lobby spawn saved: {lobbySpawnPos}");
             Puts($"[Data] Loser spawn saved: {loserSpawnPos}");
             Interface.Oxide.DataFileSystem.WriteObject(DataFileName, data);
@@ -375,21 +370,19 @@ namespace Oxide.Plugins
                     var data = Interface.Oxide.DataFileSystem.ReadObject<ArenaData>(DataFileName);
                     if (data != null)
                     {
-                        redGoalPos = new Vector3(data.Rx, data.Ry, data.Rz);
-                        blueGoalPos = new Vector3(data.Bx, data.By, data.Bz);
-                        blackGoalPos1 = new Vector3(data.Bl1x, data.Bl1y, data.Bl1z);
-                        blackGoalPos2 = new Vector3(data.Bl2x, data.Bl2y, data.Bl2z);
+                        goal1Pos = new Vector3(data.G1x, data.G1y, data.G1z);
+                        goal2Pos = new Vector3(data.G2x, data.G2y, data.G2z);
+                        goal1Rot = new Quaternion(data.G1qx, data.G1qy, data.G1qz, data.G1qw);
+                        goal2Rot = new Quaternion(data.G2qx, data.G2qy, data.G2qz, data.G2qw);
                         centerPos = new Vector3(data.Cx, data.Cy, data.Cz);
-                        redGoalRot = new Quaternion(data.Rqx, data.Rqy, data.Rqz, data.Rqw);
-                        blueGoalRot = new Quaternion(data.Bqx, data.Bqy, data.Bqz, data.Bqw);
-                        blackGoalRot1 = new Quaternion(data.Bl1qx, data.Bl1qy, data.Bl1qz, data.Bl1qw);
-                        blackGoalRot2 = new Quaternion(data.Bl2qx, data.Bl2qy, data.Bl2qz, data.Bl2qw);
                         if (data.Gw > 0) { GoalWidth = data.Gw; GoalHeight = data.Gh; GoalDepth = data.Gd; }
                     
                         // Load spawn positions
                         lobbySpawnPos = new Vector3(data.Lbx, data.Lby, data.Lbz);
                         loserSpawnPos = new Vector3(data.Lsx, data.Lsy, data.Lsz);
                         
+                        Puts($"[Data] Loaded Goal 1: {goal1Pos}");
+                        Puts($"[Data] Loaded Goal 2: {goal2Pos}");
                         Puts($"[Data] Loaded lobby spawn: {lobbySpawnPos}");
                         Puts($"[Data] Loaded loser spawn: {loserSpawnPos}");
                         Puts("[Data] Arena data loaded successfully.");
@@ -669,8 +662,9 @@ namespace Oxide.Plugins
         {
             if (!player.IsAdmin) return;
             LoadArenaData();
-            SendReply(player, "Arena Data Reloaded.");
-            if (redGoalPos != Vector3.zero) DrawGoal(player, redGoalPos, redGoalRot, Color.red, 5f);
+            SendReply(player, "Arena Data Reloaded!");
+            if (goal1Pos != Vector3.zero) DrawGoal(player, goal1Pos, goal1Rot, Color.cyan, 5f);
+            if (goal2Pos != Vector3.zero) DrawGoal(player, goal2Pos, goal2Rot, Color.magenta, 5f);
         }
 
         [ChatCommand("start_match")]
