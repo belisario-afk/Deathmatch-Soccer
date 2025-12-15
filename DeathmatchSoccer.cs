@@ -1265,7 +1265,7 @@ namespace Oxide.Plugins
         [ChatCommand("test_bracket")]
         private void CmdTestBracket(BasePlayer player, string command, string[] args)
         {
-            if (!IsAdmin(player))
+            if (!player.IsAdmin)
             {
                 SendReply(player, "❌ Only admins can test bracket UI");
                 return;
