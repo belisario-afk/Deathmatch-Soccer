@@ -688,6 +688,9 @@ namespace Oxide.Plugins
             matchNumber = 1;
             rerollUsedThisMatch = false; // Reset reroll flag for new match
             
+            // Assign teams to goals dynamically
+            AssignTeamsToGoals();
+            
             if (rotationMode)
             {
                 // Set initial rotation: blue vs red, black waits
@@ -728,6 +731,137 @@ namespace Oxide.Plugins
 
             PrintToChat("MATCH STARTED! 3 Teams Battle!");
             CallMiddleware("EVENT: MATCH_START. Score 0-0-0. 3-Team Battle.");
+        }
+        
+        private void AssignTeamsToGoals()
+        {
+            // Determine which teams are active
+            bool redActive = redTeam.Count > 0;
+            bool blueActive = blueTeam.Count > 0;
+            bool blackActive = blackTeam.Count > 0;
+            
+            // Count custom teams with members
+            int customTeamCount = 0;
+            foreach (var kvp in customTeams)
+            {
+                if (kvp.Value.Members.Count > 0) customTeamCount++;
+            }
+            
+            Puts($"[AssignTeamsToGoals] Red:{redActive} Blue:{blueActive} Black:{blackActive} Custom:{customTeamCount}");
+            
+            // Default colors
+            Color redColor = new Color(1f, 0f, 0f);      // Bright red
+            Color blueColor = new Color(0f, 0.5f, 1f);   // Cyan blue
+            Color blackColor = new Color(0.2f, 0.2f, 0.2f); // Dark gray
+            
+            // Assign teams to goals based on active teams
+            if (rotationMode)
+            {
+                // Rotation mode: 2 teams attack, 1 defends
+                if (team1Playing == "red")
+                {
+                    goal1Team = "red";
+                    goal1Color = redColor;
+                }
+                else if (team1Playing == "blue")
+                {
+                    goal1Team = "blue";
+                    goal1Color = blueColor;
+                }
+                else if (team1Playing == "black")
+                {
+                    goal1Team = "black";
+                    goal1Color = blackColor;
+                }
+                
+                if (team2Playing == "red")
+                {
+                    goal2Team = "red";
+                    goal2Color = redColor;
+                }
+                else if (team2Playing == "blue")
+                {
+                    goal2Team = "blue";
+                    goal2Color = blueColor;
+                }
+                else if (team2Playing == "black")
+                {
+                    goal2Team = "black";
+                    goal2Color = blackColor;
+                }
+            }
+            else
+            {
+                // Normal mode: Assign based on who's playing
+                if (redActive && blueActive)
+                {
+                    // Red vs Blue
+                    goal1Team = "red";
+                    goal1Color = redColor;
+                    goal2Team = "blue";
+                    goal2Color = blueColor;
+                }
+                else if (redActive && blackActive)
+                {
+                    // Red vs Black
+                    goal1Team = "red";
+                    goal1Color = redColor;
+                    goal2Team = "black";
+                    goal2Color = blackColor;
+                }
+                else if (blueActive && blackActive)
+                {
+                    // Blue vs Black
+                    goal1Team = "blue";
+                    goal1Color = blueColor;
+                    goal2Team = "black";
+                    goal2Color = blackColor;
+                }
+                else if (customTeamCount >= 2)
+                {
+                    // Custom team match - assign first two custom teams
+                    int count = 0;
+                    foreach (var kvp in customTeams)
+                    {
+                        if (kvp.Value.Members.Count > 0)
+                        {
+                            if (count == 0)
+                            {
+                                goal1Team = kvp.Key;
+                                goal1Color = GetCustomTeamColor(kvp.Key);
+                            }
+                            else if (count == 1)
+                            {
+                                goal2Team = kvp.Key;
+                                goal2Color = GetCustomTeamColor(kvp.Key);
+                                break;
+                            }
+                            count++;
+                        }
+                    }
+                }
+                else
+                {
+                    // Default fallback
+                    goal1Team = "red";
+                    goal1Color = redColor;
+                    goal2Team = "blue";
+                    goal2Color = blueColor;
+                }
+            }
+            
+            Puts($"[AssignTeamsToGoals] Goal 1: {goal1Team} | Goal 2: {goal2Team}");
+        }
+        
+        private Color GetCustomTeamColor(string teamName)
+        {
+            // Get color for custom team from customTeamColors dictionary
+            if (customTeamColors.ContainsKey(teamName))
+            {
+                return customTeamColors[teamName];
+            }
+            // Default to white if not found
+            return new Color(1f, 1f, 1f);
         }
 
         [ChatCommand("goal_size")]
