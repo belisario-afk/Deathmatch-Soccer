@@ -598,6 +598,12 @@ namespace Oxide.Plugins
                     {
                         DrawGoal(player, goal2Pos, goal2Rot, goal2Color, 1.7f);
                     }
+                    
+                    // Show tournament bracket UI if tournament is active
+                    if (tournamentActive)
+                    {
+                        ShowTournamentTreeUI(player);
+                    }
                 }
             });
             
@@ -4451,6 +4457,132 @@ namespace Oxide.Plugins
                     ShowModeVotingUI(p);
                 }
             }
+        }
+        
+        // ==========================================
+        // TOURNAMENT BRACKET UI
+        // ==========================================
+        
+        private void ShowTournamentTreeUI(BasePlayer player)
+        {
+            if (player == null || !player.IsConnected || !tournamentActive) return;
+            
+            var container = new CuiElementContainer();
+            
+            // Main panel (top-left corner)
+            container.Add(new CuiPanel
+            {
+                Image = { Color = "0 0 0 0.85" },
+                RectTransform = { AnchorMin = "0.01 0.65", AnchorMax = "0.28 0.99" },
+                CursorEnabled = false
+            }, "Overlay", "TournamentTreeUI");
+            
+            // Title
+            container.Add(new CuiLabel
+            {
+                Text = { Text = "🏆 TOURNAMENT BRACKET", FontSize = 16, Align = TextAnchor.MiddleCenter, Color = "1 0.84 0 1" },
+                RectTransform = { AnchorMin = "0 0.92", AnchorMax = "1 1" }
+            }, "TournamentTreeUI");
+            
+            // Divider line
+            container.Add(new CuiPanel
+            {
+                Image = { Color = "1 0.84 0 0.5" },
+                RectTransform = { AnchorMin = "0.05 0.91", AnchorMax = "0.95 0.915" }
+            }, "TournamentTreeUI");
+            
+            // Display matches
+            float yPos = 0.88f;
+            float yStep = 0.14f;
+            
+            for (int i = 0; i < tournamentBracket.Count; i++)
+            {
+                var match = tournamentBracket[i];
+                bool isCurrent = (i == currentMatchIndex);
+                string statusColor = match.isComplete ? "0.5 1 0.5 1" : (isCurrent ? "1 1 0 1" : "0.8 0.8 0.8 1");
+                
+                // Match number
+                string matchText = $"Match {i + 1}/{tournamentBracket.Count}";
+                if (isCurrent) matchText += " ← NOW";
+                else if (match.isComplete) matchText += " ✓";
+                
+                container.Add(new CuiLabel
+                {
+                    Text = { Text = matchText, FontSize = 13, Align = TextAnchor.MiddleLeft, Color = statusColor },
+                    RectTransform = { AnchorMin = $"0.05 {yPos}", AnchorMax = $"0.95 {yPos + 0.04f}" }
+                }, "TournamentTreeUI");
+                
+                yPos -= 0.04f;
+                
+                // Team names
+                string team1Display = match.team1 ?? "TBD";
+                string team2Display = match.team2 ?? "TBD";
+                string teamsText = $"{team1Display} vs {team2Display}";
+                
+                container.Add(new CuiLabel
+                {
+                    Text = { Text = teamsText, FontSize = 11, Align = TextAnchor.MiddleLeft, Color = "1 1 1 1" },
+                    RectTransform = { AnchorMin = $"0.08 {yPos}", AnchorMax = $"0.95 {yPos + 0.03f}" }
+                }, "TournamentTreeUI");
+                
+                yPos -= 0.03f;
+                
+                // Winner or status
+                string statusText = "";
+                if (match.isComplete && match.winner != null)
+                {
+                    statusText = $"Winner: {match.winner} ✓";
+                    container.Add(new CuiLabel
+                    {
+                        Text = { Text = statusText, FontSize = 10, Align = TextAnchor.MiddleLeft, Color = "0.5 1 0.5 1" },
+                        RectTransform = { AnchorMin = $"0.08 {yPos}", AnchorMax = $"0.95 {yPos + 0.03f}" }
+                    }, "TournamentTreeUI");
+                }
+                else if (isCurrent)
+                {
+                    // Show current scores
+                    int score1 = 0, score2 = 0;
+                    if (match.team1 == "red") score1 = redScore;
+                    else if (match.team1 == "blue") score1 = blueScore;
+                    else if (match.team1 == "black") score1 = blackScore;
+                    
+                    if (match.team2 == "red") score2 = redScore;
+                    else if (match.team2 == "blue") score2 = blueScore;
+                    else if (match.team2 == "black") score2 = blackScore;
+                    
+                    statusText = $"Score: {score1} - {score2}";
+                    container.Add(new CuiLabel
+                    {
+                        Text = { Text = statusText, FontSize = 10, Align = TextAnchor.MiddleLeft, Color = "1 1 0 1" },
+                        RectTransform = { AnchorMin = $"0.08 {yPos}", AnchorMax = $"0.95 {yPos + 0.03f}" }
+                    }, "TournamentTreeUI");
+                }
+                else
+                {
+                    statusText = "Status: Waiting";
+                    container.Add(new CuiLabel
+                    {
+                        Text = { Text = statusText, FontSize = 10, Align = TextAnchor.MiddleLeft, Color = "0.7 0.7 0.7 1" },
+                        RectTransform = { AnchorMin = $"0.08 {yPos}", AnchorMax = $"0.95 {yPos + 0.03f}" }
+                    }, "TournamentTreeUI");
+                }
+                
+                yPos -= 0.04f;
+                
+                // Separator line
+                if (i < tournamentBracket.Count - 1)
+                {
+                    container.Add(new CuiPanel
+                    {
+                        Image = { Color = "0.5 0.5 0.5 0.3" },
+                        RectTransform = { AnchorMin = $"0.1 {yPos}", AnchorMax = $"0.9 {yPos + 0.002f}" }
+                    }, "TournamentTreeUI");
+                    yPos -= 0.01f;
+                }
+            }
+            
+            CuiHelper.DestroyUi(player, "TournamentTreeUI");
+            CuiHelper.AddUi(player, container);
         }
 
         private void StartTicker()
