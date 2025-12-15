@@ -145,8 +145,14 @@ namespace Oxide.Plugins
         // STATE
         private BaseEntity activeBall;
         private BasePlayer lastKicker; 
-        private Vector3 redGoalPos, blueGoalPos, blackGoalPos1, blackGoalPos2, centerPos;
-        private Quaternion redGoalRot, blueGoalRot, blackGoalRot1, blackGoalRot2;
+        
+        // DYNAMIC GOAL SYSTEM - Goal 1 and Goal 2
+        private Vector3 goal1Pos, goal2Pos, centerPos;
+        private Quaternion goal1Rot, goal2Rot;
+        private string goal1Team = ""; // Which team is assigned to Goal 1
+        private string goal2Team = ""; // Which team is assigned to Goal 2
+        private Color goal1Color = Color.white; // Dynamic color for Goal 1
+        private Color goal2Color = Color.white; // Dynamic color for Goal 2
         
         private int scoreRed = 0;
         private int scoreBlue = 0;
