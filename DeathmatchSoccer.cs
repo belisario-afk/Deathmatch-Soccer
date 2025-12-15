@@ -3000,6 +3000,44 @@ namespace Oxide.Plugins
         {
             CuiHelper.DestroyUi(player, "RoleSelectUI");
             var c = new CuiElementContainer();
+            
+            // Handle custom teams (don't use teamConfigs)
+            if (team == "custom")
+            {
+                string p = c.Add(new CuiPanel { Image = { Color = "0 0 0 0.9" }, RectTransform = { AnchorMin = "0.25 0.2", AnchorMax = "0.75 0.8" }, CursorEnabled = true }, "Overlay", "RoleSelectUI");
+                
+                // Title - Generic styling for custom teams
+                c.Add(new CuiLabel { Text = { Text = "CHOOSE ROLE - CUSTOM TEAM", FontSize = 20, Align = TextAnchor.MiddleCenter, Color = "1 1 1 1", Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0 0.88", AnchorMax = "1 0.98" } }, p);
+                c.Add(new CuiLabel { Text = { Text = "(Your Custom Team)", FontSize = 14, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.6" }, RectTransform = { AnchorMin = "0 0.80", AnchorMax = "1 0.88" } }, p);
+                
+                // Add role buttons (same as below)
+                // Row 1: Striker and Playmaker
+                string strikerBtn = c.Add(new CuiButton { Button = { Command = "select_role Striker", Color = "0.2 0.6 0.2 0.9" }, Text = { Text = "STRIKER", FontSize = 16, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.05 0.52", AnchorMax = "0.48 0.75" } }, p);
+                c.Add(new CuiLabel { Text = { Text = "⚡ Speed & Scoring", FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.8" }, RectTransform = { AnchorMin = "0 0.05", AnchorMax = "1 0.25" } }, strikerBtn);
+                c.Add(new CuiLabel { Text = { Text = "Bat • Python", FontSize = 10, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.6" }, RectTransform = { AnchorMin = "0 0.7", AnchorMax = "1 0.95" } }, strikerBtn);
+                
+                string playmakerBtn = c.Add(new CuiButton { Button = { Command = "select_role Playmaker", Color = "0.2 0.4 0.8 0.9" }, Text = { Text = "PLAYMAKER", FontSize = 16, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.52 0.52", AnchorMax = "0.95 0.75" } }, p);
+                c.Add(new CuiLabel { Text = { Text = "🎯 Ball Control", FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.8" }, RectTransform = { AnchorMin = "0 0.05", AnchorMax = "1 0.25" } }, playmakerBtn);
+                c.Add(new CuiLabel { Text = { Text = "Snowball • Crossbow", FontSize = 10, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.6" }, RectTransform = { AnchorMin = "0 0.7", AnchorMax = "1 0.95" } }, playmakerBtn);
+                
+                // Row 2: Enforcer and Goalie
+                string enforcerBtn = c.Add(new CuiButton { Button = { Command = "select_role Enforcer", Color = "0.6 0.2 0.6 0.9" }, Text = { Text = "ENFORCER", FontSize = 16, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.05 0.25", AnchorMax = "0.48 0.48" } }, p);
+                c.Add(new CuiLabel { Text = { Text = "🛡️ Tackling & Defense", FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.8" }, RectTransform = { AnchorMin = "0 0.05", AnchorMax = "1 0.25" } }, enforcerBtn);
+                c.Add(new CuiLabel { Text = { Text = "Nailgun • Bat", FontSize = 10, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.6" }, RectTransform = { AnchorMin = "0 0.7", AnchorMax = "1 0.95" } }, enforcerBtn);
+                
+                string goalieBtn = c.Add(new CuiButton { Button = { Command = "select_role Goalie", Color = "0.8 0.4 0.1 0.9" }, Text = { Text = "GOALIE", FontSize = 16, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.52 0.25", AnchorMax = "0.95 0.48" } }, p);
+                c.Add(new CuiLabel { Text = { Text = "💊 Support & Healing", FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.8" }, RectTransform = { AnchorMin = "0 0.05", AnchorMax = "1 0.25" } }, goalieBtn);
+                c.Add(new CuiLabel { Text = { Text = "MGL • SPAS-12 • Flashlight", FontSize = 10, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.6" }, RectTransform = { AnchorMin = "0 0.7", AnchorMax = "1 0.95" } }, goalieBtn);
+                
+                // Instructions
+                c.Add(new CuiLabel { Text = { Text = "Select your role for the match", FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.7" }, RectTransform = { AnchorMin = "0.05 0.10", AnchorMax = "0.95 0.22" } }, p);
+                c.Add(new CuiLabel { Text = { Text = "⚽ Each role has unique weapons and abilities", FontSize = 10, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.5" }, RectTransform = { AnchorMin = "0.05 0.02", AnchorMax = "0.95 0.10" } }, p);
+                
+                CuiHelper.AddUi(player, c);
+                return;
+            }
+            
+            // Default teams use teamConfigs
             var config = teamConfigs[team];
             string p = c.Add(new CuiPanel { Image = { Color = "0 0 0 0.9" }, RectTransform = { AnchorMin = "0.25 0.2", AnchorMax = "0.75 0.8" }, CursorEnabled = true }, "Overlay", "RoleSelectUI");
             
