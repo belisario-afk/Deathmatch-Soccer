@@ -590,6 +590,9 @@ namespace Oxide.Plugins
         {
             if (player == null) return;
             
+            // Update online custom teams
+            UpdateOnlineCustomTeams();
+            
             // If host disconnected, select new host
             if (player.userID == hostPlayerId)
             {
@@ -1585,7 +1588,10 @@ namespace Oxide.Plugins
             if (player == null || arg.Args == null || arg.Args.Length < 1) return;
             CuiHelper.DestroyUi(player, "TeamSelectUI");
             
-            string team = arg.Args[0].ToLower();
+            string teamInput = arg.Args[0];
+            string team = teamInput.ToLower();
+            
+            // Remove from all default teams
             redTeam.Remove(player.userID);
             blueTeam.Remove(player.userID);
             blackTeam.Remove(player.userID);
@@ -1595,9 +1601,39 @@ namespace Oxide.Plugins
             CuiHelper.DestroyUi(player, "BallRangeHUD"); 
             CuiHelper.DestroyUi(player, "LeashHUD");
 
+            // Handle default teams
             if (team == "red") { redTeam.Add(player.userID); CheckRole(player, "red"); }
             else if (team == "blue") { blueTeam.Add(player.userID); CheckRole(player, "blue"); }
             else if (team == "black") { blackTeam.Add(player.userID); CheckRole(player, "black"); }
+            else
+            {
+                // Check if it's a custom team ID
+                if (customTeams.ContainsKey(teamInput))
+                {
+                    var customTeam = customTeams[teamInput];
+                    
+                    // Check if team has online members
+                    if (!onlineCustomTeams.Contains(teamInput))
+                    {
+                        SendReply(player, "❌ That custom team has no members online!");
+                        timer.Once(0.5f, () => ShowTeamSelectUI(player));
+                        return;
+                    }
+                    
+                    // Add player to custom team assignment
+                    if (playerTeamAssignments.ContainsKey(player.userID))
+                    {
+                        playerTeamAssignments[player.userID] = teamInput;
+                    }
+                    else
+                    {
+                        playerTeamAssignments.Add(player.userID, teamInput);
+                    }
+                    
+                    SendReply(player, $"✓ Joined custom team: {customTeam.TeamName}");
+                    CheckRole(player, "custom");
+                }
+            }
             
             // Check if we need to select a host
             SelectHost();
@@ -2765,40 +2801,97 @@ namespace Oxide.Plugins
         {
             CuiHelper.DestroyUi(player, "TeamSelectUI");
             var c = new CuiElementContainer();
-            string panel = c.Add(new CuiPanel { Image = { Color = "0 0 0 0.95" }, RectTransform = { AnchorMin = "0.25 0.25", AnchorMax = "0.75 0.75" }, CursorEnabled = true }, "Overlay", "TeamSelectUI");
+            string panel = c.Add(new CuiPanel { Image = { Color = "0 0 0 0.95" }, RectTransform = { AnchorMin = "0.20 0.20", AnchorMax = "0.80 0.80" }, CursorEnabled = true }, "Overlay", "TeamSelectUI");
             
             // Title
-            c.Add(new CuiLabel { Text = { Text = "SELECT YOUR TEAM", FontSize = 24, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0 0.85", AnchorMax = "1 0.98" } }, panel);
+            c.Add(new CuiLabel { Text = { Text = "SELECT YOUR TEAM", FontSize = 24, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0 0.90", AnchorMax = "1 0.98" } }, panel);
             
+            // Section titles
+            c.Add(new CuiLabel { Text = { Text = "DEFAULT TEAMS", FontSize = 14, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.8" }, RectTransform = { AnchorMin = "0.05 0.83", AnchorMax = "0.48 0.89" } }, panel);
+            
+            // Check if there are online custom teams
+            List<CustomTeam> onlineTeams = new List<CustomTeam>();
+            foreach (var teamID in onlineCustomTeams)
+            {
+                if (customTeams.ContainsKey(teamID))
+                {
+                    onlineTeams.Add(customTeams[teamID]);
+                }
+            }
+            
+            if (onlineTeams.Count > 0)
+            {
+                c.Add(new CuiLabel { Text = { Text = "CUSTOM TEAMS", FontSize = 14, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.8" }, RectTransform = { AnchorMin = "0.52 0.83", AnchorMax = "0.95 0.89" } }, panel);
+            }
+            
+            // LEFT COLUMN: Default teams
             // Blue Team Button
             var blueConfig = teamConfigs["blue"];
-            string blueBtn = c.Add(new CuiButton { Button = { Command = "select_team blue", Color = blueConfig.Color + " 0.8" }, Text = { Text = "", FontSize = 1 }, RectTransform = { AnchorMin = "0.05 0.55", AnchorMax = "0.32 0.78" } }, panel);
-            c.Add(new CuiLabel { Text = { Text = blueConfig.Name, FontSize = 14, Align = TextAnchor.MiddleCenter, Color = "1 1 1 1" }, RectTransform = { AnchorMin = "0.05 0.05", AnchorMax = "0.95 0.35" } }, blueBtn);
-            c.Add(new CuiLabel { Text = { Text = $"[{blueConfig.Tag}]", FontSize = 18, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf", Color = "1 1 1 1" }, RectTransform = { AnchorMin = "0.05 0.4", AnchorMax = "0.95 0.7" } }, blueBtn);
-            c.Add(new CuiLabel { Text = { Text = $"{blueTeam.Count} Players", FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.7" }, RectTransform = { AnchorMin = "0.05 0.75", AnchorMax = "0.95 0.95" } }, blueBtn);
+            string blueBtn = c.Add(new CuiButton { Button = { Command = "select_team blue", Color = blueConfig.Color + " 0.8" }, Text = { Text = "", FontSize = 1 }, RectTransform = { AnchorMin = "0.05 0.60", AnchorMax = "0.48 0.80" } }, panel);
+            c.Add(new CuiLabel { Text = { Text = blueConfig.Name, FontSize = 13, Align = TextAnchor.MiddleCenter, Color = "1 1 1 1", Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.05 0.55", AnchorMax = "0.95 0.75" } }, blueBtn);
+            c.Add(new CuiLabel { Text = { Text = $"[{blueConfig.Tag}]", FontSize = 16, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf", Color = "1 1 1 1" }, RectTransform = { AnchorMin = "0.05 0.35", AnchorMax = "0.95 0.55" } }, blueBtn);
+            c.Add(new CuiLabel { Text = { Text = $"{blueTeam.Count} Players", FontSize = 11, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.7" }, RectTransform = { AnchorMin = "0.05 0.15", AnchorMax = "0.95 0.35" } }, blueBtn);
             
             // Red Team Button
             var redConfig = teamConfigs["red"];
-            string redBtn = c.Add(new CuiButton { Button = { Command = "select_team red", Color = redConfig.Color + " 0.8" }, Text = { Text = "", FontSize = 1 }, RectTransform = { AnchorMin = "0.36 0.55", AnchorMax = "0.64 0.78" } }, panel);
-            c.Add(new CuiLabel { Text = { Text = redConfig.Name, FontSize = 14, Align = TextAnchor.MiddleCenter, Color = "1 1 1 1" }, RectTransform = { AnchorMin = "0.05 0.05", AnchorMax = "0.95 0.35" } }, redBtn);
-            c.Add(new CuiLabel { Text = { Text = $"[{redConfig.Tag}]", FontSize = 18, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf", Color = "1 1 1 1" }, RectTransform = { AnchorMin = "0.05 0.4", AnchorMax = "0.95 0.7" } }, redBtn);
-            c.Add(new CuiLabel { Text = { Text = $"{redTeam.Count} Players", FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.7" }, RectTransform = { AnchorMin = "0.05 0.75", AnchorMax = "0.95 0.95" } }, redBtn);
+            string redBtn = c.Add(new CuiButton { Button = { Command = "select_team red", Color = redConfig.Color + " 0.8" }, Text = { Text = "", FontSize = 1 }, RectTransform = { AnchorMin = "0.05 0.38", AnchorMax = "0.48 0.58" } }, panel);
+            c.Add(new CuiLabel { Text = { Text = redConfig.Name, FontSize = 13, Align = TextAnchor.MiddleCenter, Color = "1 1 1 1", Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.05 0.55", AnchorMax = "0.95 0.75" } }, redBtn);
+            c.Add(new CuiLabel { Text = { Text = $"[{redConfig.Tag}]", FontSize = 16, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf", Color = "1 1 1 1" }, RectTransform = { AnchorMin = "0.05 0.35", AnchorMax = "0.95 0.55" } }, redBtn);
+            c.Add(new CuiLabel { Text = { Text = $"{redTeam.Count} Players", FontSize = 11, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.7" }, RectTransform = { AnchorMin = "0.05 0.15", AnchorMax = "0.95 0.35" } }, redBtn);
             
             // Black Team Button
             var blackConfig = teamConfigs["black"];
-            string blackBtn = c.Add(new CuiButton { Button = { Command = "select_team black", Color = "0.3 0.3 0.3 0.8" }, Text = { Text = "", FontSize = 1 }, RectTransform = { AnchorMin = "0.68 0.55", AnchorMax = "0.95 0.78" } }, panel);
-            c.Add(new CuiLabel { Text = { Text = blackConfig.Name, FontSize = 14, Align = TextAnchor.MiddleCenter, Color = "1 1 1 1" }, RectTransform = { AnchorMin = "0.05 0.05", AnchorMax = "0.95 0.35" } }, blackBtn);
-            c.Add(new CuiLabel { Text = { Text = $"[{blackConfig.Tag}]", FontSize = 18, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf", Color = "1 1 1 1" }, RectTransform = { AnchorMin = "0.05 0.4", AnchorMax = "0.95 0.7" } }, blackBtn);
-            c.Add(new CuiLabel { Text = { Text = $"{blackTeam.Count} Players", FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.7" }, RectTransform = { AnchorMin = "0.05 0.75", AnchorMax = "0.95 0.95" } }, blackBtn);
+            string blackBtn = c.Add(new CuiButton { Button = { Command = "select_team black", Color = "0.3 0.3 0.3 0.8" }, Text = { Text = "", FontSize = 1 }, RectTransform = { AnchorMin = "0.05 0.16", AnchorMax = "0.48 0.36" } }, panel);
+            c.Add(new CuiLabel { Text = { Text = blackConfig.Name, FontSize = 13, Align = TextAnchor.MiddleCenter, Color = "1 1 1 1", Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.05 0.55", AnchorMax = "0.95 0.75" } }, blackBtn);
+            c.Add(new CuiLabel { Text = { Text = $"[{blackConfig.Tag}]", FontSize = 16, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf", Color = "1 1 1 1" }, RectTransform = { AnchorMin = "0.05 0.35", AnchorMax = "0.95 0.55" } }, blackBtn);
+            c.Add(new CuiLabel { Text = { Text = $"{blackTeam.Count} Players", FontSize = 11, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.7" }, RectTransform = { AnchorMin = "0.05 0.15", AnchorMax = "0.95 0.35" } }, blackBtn);
             
-            // Team descriptions
-            c.Add(new CuiLabel { Text = { Text = "Fast & Agile", FontSize = 11, Align = TextAnchor.MiddleCenter, Color = "0.8 0.8 0.8 1" }, RectTransform = { AnchorMin = "0.05 0.45", AnchorMax = "0.32 0.53" } }, panel);
-            c.Add(new CuiLabel { Text = { Text = "Tactical & Strong", FontSize = 11, Align = TextAnchor.MiddleCenter, Color = "0.8 0.8 0.8 1" }, RectTransform = { AnchorMin = "0.36 0.45", AnchorMax = "0.64 0.53" } }, panel);
-            c.Add(new CuiLabel { Text = { Text = "Coordinated & Deadly", FontSize = 11, Align = TextAnchor.MiddleCenter, Color = "0.8 0.8 0.8 1" }, RectTransform = { AnchorMin = "0.68 0.45", AnchorMax = "0.95 0.53" } }, panel);
+            // RIGHT COLUMN: Custom teams (dynamic)
+            if (onlineTeams.Count > 0)
+            {
+                float startY = 0.80f;
+                float height = 0.18f;
+                float spacing = 0.02f;
+                int index = 0;
+                string[] teamColors = { "1 0.55 0", "0.58 0.44 0.86", "0 0.81 0.82", "1 0.84 0", "1 0.41 0.71", "0.20 0.80 0.20", "1 0.50 0.31", "0 0.50 0.50", "1 0 1", "1 1 0" };
+                
+                foreach (var team in onlineTeams)
+                {
+                    if (index >= 10) break; // Max 10 custom teams shown
+                    
+                    float minY = startY - (height + spacing) * (index + 1);
+                    float maxY = startY - (height + spacing) * index - spacing;
+                    
+                    // Get online member count
+                    int onlineCount = 0;
+                    foreach (var memberID in team.Members)
+                    {
+                        var member = BasePlayer.FindByID(memberID);
+                        if (member != null && member.IsConnected) onlineCount++;
+                    }
+                    
+                    // Get owner name
+                    string ownerName = "Unknown";
+                    var owner = BasePlayer.FindByID(team.OwnerID);
+                    if (owner != null && owner.IsConnected)
+                    {
+                        ownerName = owner.displayName;
+                    }
+                    
+                    // Team button
+                    string teamColor = teamColors[index % teamColors.Length];
+                    string customBtn = c.Add(new CuiButton { Button = { Command = $"select_team {team.TeamID}", Color = teamColor + " 0.8" }, Text = { Text = "", FontSize = 1 }, RectTransform = { AnchorMin = $"0.52 {minY}", AnchorMax = $"0.95 {maxY}" } }, panel);
+                    c.Add(new CuiLabel { Text = { Text = team.TeamName, FontSize = 13, Align = TextAnchor.MiddleCenter, Color = "1 1 1 1", Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.05 0.55", AnchorMax = "0.95 0.80" } }, customBtn);
+                    c.Add(new CuiLabel { Text = { Text = $"{onlineCount}/{team.Members.Count} online", FontSize = 10, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.8" }, RectTransform = { AnchorMin = "0.05 0.35", AnchorMax = "0.95 0.55" } }, customBtn);
+                    c.Add(new CuiLabel { Text = { Text = $"Owner: {ownerName}", FontSize = 9, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.6" }, RectTransform = { AnchorMin = "0.05 0.15", AnchorMax = "0.95 0.35" } }, customBtn);
+                    
+                    index++;
+                }
+            }
             
             // Instructions
-            c.Add(new CuiLabel { Text = { Text = "Click a team to join the battle!", FontSize = 14, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.8" }, RectTransform = { AnchorMin = "0 0.15", AnchorMax = "1 0.25" } }, panel);
-            c.Add(new CuiLabel { Text = { Text = "You can also use: /join blue, /join red, /join black", FontSize = 11, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.5" }, RectTransform = { AnchorMin = "0 0.08", AnchorMax = "1 0.15" } }, panel);
+            c.Add(new CuiLabel { Text = { Text = "Click a team to join the battle!", FontSize = 13, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.8" }, RectTransform = { AnchorMin = "0 0.06", AnchorMax = "1 0.12" } }, panel);
+            c.Add(new CuiLabel { Text = { Text = "Custom teams appear when members are online", FontSize = 10, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.5" }, RectTransform = { AnchorMin = "0 0.02", AnchorMax = "1 0.06" } }, panel);
             
             CuiHelper.AddUi(player, c);
         }
@@ -3467,6 +3560,9 @@ namespace Oxide.Plugins
             if (player == null) return;
             
             Puts($"[OnPlayerConnected] Player {player.displayName} connected");
+            
+            // Update online custom teams
+            UpdateOnlineCustomTeams();
             
             // Check if player is already on a team and match is active
             bool isOnTeam = redTeam.Contains(player.userID) || 
