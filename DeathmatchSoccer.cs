@@ -2058,6 +2058,88 @@ namespace Oxide.Plugins
         // ==========================================
         // 7. KITS & HUD LOOPS
         // ==========================================
+        
+        // Helper method to give role-specific weapons (Soccer Mode only)
+        private void GiveRoleWeapons(BasePlayer player, string role)
+        {
+            if (role == "Striker")
+            {
+                GiveItemWithSkin(player, "bat", 1, 0, player.inventory.containerBelt);
+                GiveItemWithSkin(player, "pistol.python", 1, 0, player.inventory.containerBelt);
+                player.inventory.GiveItem(ItemManager.CreateByName("ammo.pistol", 128), player.inventory.containerMain);
+            }
+            else if (role == "Playmaker")
+            {
+                GiveItemWithSkin(player, "snowballgun", 1, 0, player.inventory.containerBelt);
+                GiveItemWithSkin(player, "crossbow", 1, 0, player.inventory.containerBelt);
+                player.inventory.GiveItem(ItemManager.CreateByName("arrow.wooden", 64), player.inventory.containerMain);
+            }
+            else if (role == "Enforcer")
+            {
+                GiveItemWithSkin(player, "pistol.nailgun", 1, 0, player.inventory.containerBelt);
+                GiveItemWithSkin(player, "bat", 1, 0, player.inventory.containerBelt);
+                player.inventory.GiveItem(ItemManager.CreateByName("ammo.nailgun.nails", 128), player.inventory.containerMain);
+            }
+            else if (role == "Goalie")
+            {
+                GiveItemWithSkin(player, "multiplegrenadelauncher", 1, 0, player.inventory.containerBelt);
+                GiveItemWithSkin(player, "shotgun.spas12", 1, 0, player.inventory.containerBelt);
+                GiveItemWithSkin(player, "weapon.mod.flashlight", 1, 0, player.inventory.containerBelt);
+                player.inventory.GiveItem(ItemManager.CreateByName("ammo.grenadelauncher.he", 24), player.inventory.containerMain);
+                player.inventory.GiveItem(ItemManager.CreateByName("ammo.shotgun", 64), player.inventory.containerMain);
+            }
+        }
+        
+        // Helper method to give bonus weapon
+        private void GiveBonusWeapon(BasePlayer player)
+        {
+            if (!matchActive || string.IsNullOrEmpty(votedWeapon))
+                return;
+            
+            // Check if player already has this weapon (prevent duplicates)
+            bool hasWeapon = false;
+            foreach (Item item in player.inventory.containerBelt.itemList)
+            {
+                if (item.info.shortname == votedWeapon)
+                {
+                    hasWeapon = true;
+                    break;
+                }
+            }
+            
+            if (hasWeapon)
+                return;
+            
+            // Give weapon to belt
+            GiveItemWithSkin(player, votedWeapon, 1, 0, player.inventory.containerBelt);
+            
+            // Add appropriate ammo based on weapon type
+            if (votedWeapon.Contains("rifle.ak") || votedWeapon.Contains("rifle.lr300") || votedWeapon.Contains("rifle.m249"))
+            {
+                player.inventory.GiveItem(ItemManager.CreateByName("ammo.rifle", 128), player.inventory.containerMain);
+            }
+            else if (votedWeapon.Contains("smg."))
+            {
+                player.inventory.GiveItem(ItemManager.CreateByName("ammo.pistol", 128), player.inventory.containerMain);
+            }
+            else if (votedWeapon.Contains("shotgun."))
+            {
+                player.inventory.GiveItem(ItemManager.CreateByName("ammo.shotgun", 64), player.inventory.containerMain);
+            }
+            else if (votedWeapon.Contains("pistol."))
+            {
+                player.inventory.GiveItem(ItemManager.CreateByName("ammo.pistol", 200), player.inventory.containerMain);
+            }
+            else if (votedWeapon.Contains("rifle.bolt"))
+            {
+                player.inventory.GiveItem(ItemManager.CreateByName("ammo.rifle", 64), player.inventory.containerMain);
+            }
+            else if (votedWeapon.Contains("bow.compound"))
+            {
+                player.inventory.GiveItem(ItemManager.CreateByName("arrow.wooden", 64), player.inventory.containerMain);
+            }
+        }
+        
         private void GiveKit(BasePlayer player, string role)
         {
             player.inventory.Strip();
@@ -2070,7 +2152,77 @@ namespace Oxide.Plugins
                 return;
             }
             
-            // Determine which team the player is on
+            // Check if player is on a custom team
+            bool hasCustomTeam = playerTeamAssignments.ContainsKey(player.userID);
+            CustomTeam customTeam = null;
+            
+            if (hasCustomTeam)
+            {
+                string teamID = playerTeamAssignments[player.userID];
+                customTeam = customTeams[teamID];
+                
+                // Apply custom team kit (works in both Soccer and Normal mode)
+                if (role != "Goalie")
+                {
+                    // Give custom team's 5-piece attire
+                    GiveItemWithSkin(player, "tshirt.long", 1, customTeam.TshirtSkin, player.inventory.containerWear);
+                    GiveItemWithSkin(player, "pants", 1, customTeam.PantsSkin, player.inventory.containerWear);
+                    GiveItemWithSkin(player, "metal.plate.torso", 1, customTeam.TorsoSkin, player.inventory.containerWear);
+                    GiveItemWithSkin(player, "metal.facemask", 1, customTeam.FacemaskSkin, player.inventory.containerWear);
+                    GiveItemWithSkin(player, "burlap.shoes", 1, customTeam.ShoesSkin, player.inventory.containerWear);
+                    
+                    // Medical supplies
+                    player.inventory.GiveItem(ItemManager.CreateByName("syringe.medical", 5), player.inventory.containerMain);
+                    player.inventory.GiveItem(ItemManager.CreateByName("barricade.wood.cover", 3), player.inventory.containerMain);
+                }
+                else // Goalie gets custom goalie kit
+                {
+                    GiveItemWithSkin(player, "metal.facemask.hockey", 1, 0, player.inventory.containerWear);
+                    GiveItemWithSkin(player, "heavy.plate.jacket", 1, customTeam.GoalieJacketSkin, player.inventory.containerWear);
+                    GiveItemWithSkin(player, "heavy.plate.pants", 1, customTeam.GoaliePantsSkin, player.inventory.containerWear);
+                    GiveItemWithSkin(player, "shoes.boots", 1, 0, player.inventory.containerWear);
+                    
+                    // Goalie supplies
+                    player.inventory.GiveItem(ItemManager.CreateByName("syringe.medical", 10), player.inventory.containerMain);
+                    player.inventory.GiveItem(ItemManager.CreateByName("barricade.wood.cover", 3), player.inventory.containerMain);
+                }
+                
+                // Set health based on role
+                if (role == "Striker")
+                {
+                    player.SetMaxHealth(100); 
+                    player.health = 100;
+                }
+                else if (role == "Playmaker")
+                {
+                    player.SetMaxHealth(125); 
+                    player.health = 125;
+                }
+                else if (role == "Enforcer")
+                {
+                    player.SetMaxHealth(150); 
+                    player.health = 150;
+                }
+                else // Goalie
+                {
+                    player.SetMaxHealth(200); 
+                    player.health = 200;
+                }
+                
+                // Give Soccer Mode weapons if in Soccer Mode (custom teams keep abilities)
+                if (gameMode == "soccer")
+                {
+                    GiveRoleWeapons(player, role);
+                }
+                
+                // Give bonus weapon (always given regardless of mode)
+                GiveBonusWeapon(player);
+                
+                Puts($"[GiveKit] Applied custom team kit for {player.displayName} ({customTeam.TeamName})");
+                return; // Skip default team kits
+            }
+            
+            // Determine which team the player is on (default teams: red, blue, black)
             string team = redTeam.Contains(player.userID) ? "red" : 
                          blueTeam.Contains(player.userID) ? "blue" : "black";
             TeamSkins skins = teamSkins[team];
