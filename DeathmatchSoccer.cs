@@ -5518,7 +5518,7 @@ namespace Oxide.Plugins
         private void DrawGoal(BasePlayer player, Vector3 c, Quaternion r, Color col, float dur)
         {
             float hw=GoalWidth/2, hh=GoalHeight/2, hd=GoalDepth/2;
-            float thick = 0.15f; // Thickness offset for double lines
+            float thick = 0.25f; // Thickness offset for thicker double lines (increased from 0.15f)
             Vector3[] p = new Vector3[8];
             p[0]=c+r*new Vector3(-hw,-hh,-hd); p[1]=c+r*new Vector3(hw,-hh,-hd); p[2]=c+r*new Vector3(hw,-hh,hd); p[3]=c+r*new Vector3(-hw,-hh,hd);
             p[4]=c+r*new Vector3(-hw,hh,-hd); p[5]=c+r*new Vector3(hw,hh,-hd); p[6]=c+r*new Vector3(hw,hh,hd); p[7]=c+r*new Vector3(-hw,hh,hd);
@@ -5528,11 +5528,20 @@ namespace Oxide.Plugins
             player.SendConsoleCommand("ddraw.line", dur, col, p[4], p[5]); player.SendConsoleCommand("ddraw.line", dur, col, p[5], p[6]); player.SendConsoleCommand("ddraw.line", dur, col, p[6], p[7]); player.SendConsoleCommand("ddraw.line", dur, col, p[7], p[4]);
             player.SendConsoleCommand("ddraw.line", dur, col, p[0], p[4]); player.SendConsoleCommand("ddraw.line", dur, col, p[1], p[5]); player.SendConsoleCommand("ddraw.line", dur, col, p[2], p[6]); player.SendConsoleCommand("ddraw.line", dur, col, p[3], p[7]);
             
-            // Draw thick parallel lines for better visibility (offset inward slightly)
+            // Draw thick parallel lines for better visibility (multiple layers)
+            // Layer 1: Inner offset
             Vector3 offset = r * new Vector3(thick, 0, 0);
             player.SendConsoleCommand("ddraw.line", dur, col, p[0]+offset, p[1]-offset); player.SendConsoleCommand("ddraw.line", dur, col, p[2]-offset, p[3]+offset);
             player.SendConsoleCommand("ddraw.line", dur, col, p[4]+offset, p[5]-offset); player.SendConsoleCommand("ddraw.line", dur, col, p[6]-offset, p[7]+offset);
             offset = r * new Vector3(0, thick, 0);
+            player.SendConsoleCommand("ddraw.line", dur, col, p[0]+offset, p[4]+offset); player.SendConsoleCommand("ddraw.line", dur, col, p[1]+offset, p[5]+offset);
+            player.SendConsoleCommand("ddraw.line", dur, col, p[2]+offset, p[6]+offset); player.SendConsoleCommand("ddraw.line", dur, col, p[3]+offset, p[7]+offset);
+            
+            // Layer 2: Outer offset for extra thickness
+            offset = r * new Vector3(thick * 2, 0, 0);
+            player.SendConsoleCommand("ddraw.line", dur, col, p[0]+offset, p[1]-offset); player.SendConsoleCommand("ddraw.line", dur, col, p[2]-offset, p[3]+offset);
+            player.SendConsoleCommand("ddraw.line", dur, col, p[4]+offset, p[5]-offset); player.SendConsoleCommand("ddraw.line", dur, col, p[6]-offset, p[7]+offset);
+            offset = r * new Vector3(0, thick * 2, 0);
             player.SendConsoleCommand("ddraw.line", dur, col, p[0]+offset, p[4]+offset); player.SendConsoleCommand("ddraw.line", dur, col, p[1]+offset, p[5]+offset);
             player.SendConsoleCommand("ddraw.line", dur, col, p[2]+offset, p[6]+offset); player.SendConsoleCommand("ddraw.line", dur, col, p[3]+offset, p[7]+offset);
             
