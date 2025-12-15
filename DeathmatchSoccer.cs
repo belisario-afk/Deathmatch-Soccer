@@ -4072,26 +4072,26 @@ namespace Oxide.Plugins
                     
                     if (redTeam.Contains(player.userID))
                     {
-                        goalPos = redGoalPos;
-                        goalRot = redGoalRot;
+                        goalPos = goal1Pos;
+                        goalRot = goal1Rot;
                     }
                     else if (blueTeam.Contains(player.userID))
                     {
-                        goalPos = blueGoalPos;
-                        goalRot = blueGoalRot;
+                        goalPos = goal2Pos;
+                        goalRot = goal2Rot;
                     }
                     else // Black team
                     {
-                        // Determine which black goal position to use
-                        if (activeGoals["black1"])
+                        // Determine which goal position to use based on rotation
+                        if (rotationMode)
                         {
-                            goalPos = blackGoalPos1;
-                            goalRot = blackGoalRot1;
+                            goalPos = goal1Pos;
+                            goalRot = goal1Rot;
                         }
                         else
                         {
-                            goalPos = blackGoalPos2;
-                            goalRot = blackGoalRot2;
+                            goalPos = goal2Pos;
+                            goalRot = goal2Rot;
                         }
                     }
                     
@@ -4670,48 +4670,24 @@ namespace Oxide.Plugins
             string scoringTeam = null;
             string goalType = null;
             
-            // Check blue goal (if active)
-            if (activeGoals["blue"] && IsInside(activeBall.transform.position, blueGoalPos, blueGoalRot))
+            // Check goal 1
+            if (IsInside(activeBall.transform.position, goal1Pos, goal1Rot))
             {
-                goalType = "blue";
-                // Ball went into blue's goal - determine who kicked it
-                if (lastKicker != null)
+                goalType = "goal1";
+                // Ball went into goal 1 - award point to goal2Team
+                if (!string.IsNullOrEmpty(goal2Team))
                 {
-                    if (redTeam.Contains(lastKicker.userID)) scoringTeam = "RED";
-                    else if (blackTeam.Contains(lastKicker.userID)) scoringTeam = "BLACK";
+                    scoringTeam = goal2Team.ToUpper();
                 }
             }
-            // Check red goal (if active)
-            else if (activeGoals["red"] && IsInside(activeBall.transform.position, redGoalPos, redGoalRot))
+            // Check goal 2
+            else if (IsInside(activeBall.transform.position, goal2Pos, goal2Rot))
             {
-                goalType = "red";
-                // Ball went into red's goal - determine who kicked it
-                if (lastKicker != null)
+                goalType = "goal2";
+                // Ball went into goal 2 - award point to goal1Team
+                if (!string.IsNullOrEmpty(goal1Team))
                 {
-                    if (blueTeam.Contains(lastKicker.userID)) scoringTeam = "BLUE";
-                    else if (blackTeam.Contains(lastKicker.userID)) scoringTeam = "BLACK";
-                }
-            }
-            // Check black goal 1 (if active)
-            else if (activeGoals["black1"] && IsInside(activeBall.transform.position, blackGoalPos1, blackGoalRot1))
-            {
-                goalType = "black1";
-                // Ball went into black1's goal - determine who kicked it
-                if (lastKicker != null)
-                {
-                    if (blueTeam.Contains(lastKicker.userID)) scoringTeam = "BLUE";
-                    else if (redTeam.Contains(lastKicker.userID)) scoringTeam = "RED";
-                }
-            }
-            // Check black goal 2 (if active)
-            else if (activeGoals["black2"] && IsInside(activeBall.transform.position, blackGoalPos2, blackGoalRot2))
-            {
-                goalType = "black2";
-                // Ball went into black2's goal - determine who kicked it
-                if (lastKicker != null)
-                {
-                    if (blueTeam.Contains(lastKicker.userID)) scoringTeam = "BLUE";
-                    else if (redTeam.Contains(lastKicker.userID)) scoringTeam = "RED";
+                    scoringTeam = goal1Team.ToUpper();
                 }
             }
             
