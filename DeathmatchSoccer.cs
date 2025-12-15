@@ -878,6 +878,255 @@ namespace Oxide.Plugins
             // Default to white if not found
             return new Color(1f, 1f, 1f);
         }
+        
+        // ==========================================
+        // TOURNAMENT BRACKET GENERATION & MANAGEMENT
+        // ==========================================
+        
+        private void GenerateTournamentBracket()
+        {
+            tournamentBracket.Clear();
+            
+            // Collect all active teams
+            List<string> teams = new List<string>();
+            
+            // Add default teams with players
+            if (redTeamPlayers.Count > 0) teams.Add("red");
+            if (blueTeamPlayers.Count > 0) teams.Add("blue");
+            if (blackTeamPlayers.Count > 0) teams.Add("black");
+            
+            // Add custom teams with online members
+            foreach (var kvp in customTeams)
+            {
+                bool hasOnlineMembers = false;
+                foreach (var memberID in kvp.Value.Members)
+                {
+                    var player = BasePlayer.FindByID(memberID);
+                    if (player != null && player.IsConnected)
+                    {
+                        hasOnlineMembers = true;
+                        break;
+                    }
+                }
+                if (hasOnlineMembers)
+                {
+                    teams.Add(kvp.Value.TeamName);
+                }
+            }
+            
+            if (teams.Count < 2)
+            {
+                Puts("[Tournament] Not enough teams for bracket");
+                return;
+            }
+            
+            // Generate bracket matches
+            int matchNumber = 0;
+            
+            // Round 1: Pair up teams
+            for (int i = 0; i < teams.Count; i += 2)
+            {
+                if (i + 1 < teams.Count)
+                {
+                    tournamentBracket.Add(new TournamentMatch
+                    {
+                        team1 = teams[i],
+                        team2 = teams[i + 1],
+                        matchNumber = matchNumber++,
+                        isComplete = false
+                    });
+                }
+            }
+            
+            // Calculate number of rounds needed
+            int totalMatches = teams.Count - 1; // Single elimination
+            
+            Puts($"[Tournament] Generated bracket with {tournamentBracket.Count} matches for {teams.Count} teams");
+        }
+        
+        private void StartTournamentMatch(int matchIndex)
+        {
+            if (matchIndex >= tournamentBracket.Count)
+            {
+                // Tournament complete!
+                PrintToChat($"<color=#FFD700>🏆 TOURNAMENT COMPLETE!</color>");
+                PrintToChat($"<color=#FFD700>Champion: {tournamentBracket[tournamentBracket.Count - 1].winner}</color>");
+                tournamentActive = false;
+                return;
+            }
+            
+            var match = tournamentBracket[matchIndex];
+            
+            PrintToChat($"<color=#FFD700>════════════════════════════════════════</color>");
+            PrintToChat($"<color=#FFD700>🏆 Match {matchIndex + 1}/{tournamentBracket.Count}</color>");
+            PrintToChat($"<color=#FFD700>⚔️ {match.team1} vs {match.team2}</color>");
+            PrintToChat($"<color=#FFD700>════════════════════════════════════════</color>");
+            
+            // Teleport match teams to goals
+            TeleportTournamentTeams(match.team1, match.team2);
+            
+            // Teleport other teams to waiting area
+            TeleportWaitingTeams(match.team1, match.team2);
+        }
+        
+        private void TeleportTournamentTeams(string team1, string team2)
+        {
+            // Teleport team1 to goal1
+            TeleportTeamToPosition(team1, goal1Pos);
+            
+            // Teleport team2 to goal2
+            TeleportTeamToPosition(team2, goal2Pos);
+        }
+        
+        private void TeleportWaitingTeams(string activeTeam1, string activeTeam2)
+        {
+            if (waitingAreaSpawnPos == Vector3.zero) return;
+            
+            // Teleport all other teams to waiting area
+            foreach (var player in BasePlayer.activePlayerList)
+            {
+                string playerTeam = GetPlayerTeam(player);
+                if (playerTeam != activeTeam1 && playerTeam != activeTeam2)
+                {
+                    player.Teleport(waitingAreaSpawnPos);
+                    player.ClientRPCPlayer(null, player, "ForcePositionTo", waitingAreaSpawnPos);
+                }
+            }
+        }
+        
+        private void TeleportTeamToPosition(string teamName, Vector3 position)
+        {
+            if (teamName == "red")
+            {
+                foreach (var player in redTeamPlayers.Values)
+                {
+                    if (player != null && player.IsConnected)
+                    {
+                        player.Teleport(position);
+                        player.ClientRPCPlayer(null, player, "ForcePositionTo", position);
+                    }
+                }
+            }
+            else if (teamName == "blue")
+            {
+                foreach (var player in blueTeamPlayers.Values)
+                {
+                    if (player != null && player.IsConnected)
+                    {
+                        player.Teleport(position);
+                        player.ClientRPCPlayer(null, player, "ForcePositionTo", position);
+                    }
+                }
+            }
+            else if (teamName == "black")
+            {
+                foreach (var player in blackTeamPlayers.Values)
+                {
+                    if (player != null && player.IsConnected)
+                    {
+                        player.Teleport(position);
+                        player.ClientRPCPlayer(null, player, "ForcePositionTo", position);
+                    }
+                }
+            }
+            else
+            {
+                // Custom team
+                foreach (var kvp in customTeams)
+                {
+                    if (kvp.Value.TeamName == teamName)
+                    {
+                        foreach (var memberID in kvp.Value.Members)
+                        {
+                            var player = BasePlayer.FindByID(memberID);
+                            if (player != null && player.IsConnected)
+                            {
+                                player.Teleport(position);
+                                player.ClientRPCPlayer(null, player, "ForcePositionTo", position);
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        
+        private string GetPlayerTeam(BasePlayer player)
+        {
+            if (redTeamPlayers.ContainsKey(player.userID)) return "red";
+            if (blueTeamPlayers.ContainsKey(player.userID)) return "blue";
+            if (blackTeamPlayers.ContainsKey(player.userID)) return "black";
+            
+            if (playerTeamAssignments.ContainsKey(player.userID))
+            {
+                string teamID = playerTeamAssignments[player.userID];
+                if (customTeams.ContainsKey(teamID))
+                {
+                    return customTeams[teamID].TeamName;
+                }
+            }
+            
+            return "none";
+        }
+        
+        private void AdvanceTournament()
+        {
+            if (currentMatchIndex >= tournamentBracket.Count)
+            {
+                PrintToChat("<color=#FFD700>🏆 Tournament already complete!</color>");
+                return;
+            }
+            
+            var currentMatch = tournamentBracket[currentMatchIndex];
+            
+            // Determine winner based on score
+            string winner = DetermineMatchWinner(currentMatch.team1, currentMatch.team2);
+            
+            if (winner == null)
+            {
+                PrintToChat("<color=#FF0000>❌ Cannot advance - no clear winner yet!</color>");
+                return;
+            }
+            
+            currentMatch.winner = winner;
+            currentMatch.isComplete = true;
+            
+            PrintToChat($"<color=#FFD700>🏆 Match {currentMatchIndex + 1} Complete!</color>");
+            PrintToChat($"<color=#FFD700>Winner: {winner}</color>");
+            
+            // Move to next match
+            currentMatchIndex++;
+            
+            if (currentMatchIndex < tournamentBracket.Count)
+            {
+                timer.Once(5f, () => StartTournamentMatch(currentMatchIndex));
+            }
+            else
+            {
+                PrintToChat($"<color=#FFD700>════════════════════════════════════════</color>");
+                PrintToChat($"<color=#FFD700>🏆 TOURNAMENT CHAMPION: {winner}!</color>");
+                PrintToChat($"<color=#FFD700>════════════════════════════════════════</color>");
+                tournamentActive = false;
+            }
+        }
+        
+        private string DetermineMatchWinner(string team1, string team2)
+        {
+            // Use current goal assignments to determine winner
+            int team1Score = 0;
+            int team2Score = 0;
+            
+            if (goal1Team == team1) team1Score = goal1Score;
+            else if (goal1Team == team2) team2Score = goal1Score;
+            
+            if (goal2Team == team1) team1Score = goal2Score;
+            else if (goal2Team == team2) team2Score = goal2Score;
+            
+            if (team1Score > team2Score) return team1;
+            if (team2Score > team1Score) return team2;
+            
+            return null; // Tie or no score yet
+        }
 
         [ChatCommand("goal_size")]
         private void CmdSetSize(BasePlayer player, string command, string[] args)
