@@ -752,6 +752,9 @@ namespace Oxide.Plugins
             if (hudTimer != null) hudTimer.Destroy();
             hudTimer = timer.Repeat(0.5f, 0, HudLoop);
 
+            // Teleport teams to their positions
+            TeleportTeamsToPositions();
+
             PrintToChat("MATCH STARTED! 3 Teams Battle!");
             CallMiddleware("EVENT: MATCH_START. Score 0-0-0. 3-Team Battle.");
         }
@@ -1257,6 +1260,111 @@ namespace Oxide.Plugins
             SaveArenaData();
             SendReply(p, $"✓ Loser spawn point set at {loserSpawnPos}! Losing team will teleport here after match.");
             Puts($"Loser spawn set to: {loserSpawnPos}");
+        }
+        
+        [ChatCommand("test_bracket")]
+        private void CmdTestBracket(BasePlayer player, string command, string[] args)
+        {
+            if (!IsAdmin(player))
+            {
+                SendReply(player, "❌ Only admins can test bracket UI");
+                return;
+            }
+            
+            // Create test bracket with 6 teams (5 matches)
+            tournamentBracket = new List<TournamentMatch>();
+            
+            // Match 1: Red vs Blue (complete - Red wins)
+            tournamentBracket.Add(new TournamentMatch
+            {
+                team1 = "red",
+                team2 = "blue",
+                matchNumber = 1,
+                isComplete = true,
+                winner = "red"
+            });
+            
+            // Match 2: Thunder vs Phoenix (in progress)
+            tournamentBracket.Add(new TournamentMatch
+            {
+                team1 = "Thunder",
+                team2 = "Phoenix",
+                matchNumber = 2,
+                isComplete = false,
+                winner = null
+            });
+            
+            // Match 3: Black vs Storm (waiting)
+            tournamentBracket.Add(new TournamentMatch
+            {
+                team1 = "black",
+                team2 = "Storm",
+                matchNumber = 3,
+                isComplete = false,
+                winner = null
+            });
+            
+            // Match 4: Semifinals (TBD)
+            tournamentBracket.Add(new TournamentMatch
+            {
+                team1 = "TBD",
+                team2 = "TBD",
+                matchNumber = 4,
+                isComplete = false,
+                winner = null
+            });
+            
+            // Match 5: Finals (TBD)
+            tournamentBracket.Add(new TournamentMatch
+            {
+                team1 = "TBD",
+                team2 = "TBD",
+                matchNumber = 5,
+                isComplete = false,
+                winner = null
+            });
+            
+            currentMatchIndex = 1; // Set current match to 2 (in progress)
+            tournamentActive = true;
+            
+            // Show UI to all players
+            foreach (var p in BasePlayer.activePlayerList)
+            {
+                ShowTournamentTreeUI(p);
+            }
+            
+            SendReply(player, "✅ Test bracket UI displayed to all players!");
+            Puts($"Admin {player.displayName} tested tournament bracket UI");
+        }
+
+        private void TeleportTeamsToPositions()
+        {
+            if (tournamentActive)
+            {
+                // Tournament mode: teleport playing teams to goals, others to waiting area
+                var currentMatch = tournamentBracket[currentMatchIndex];
+                TeleportTournamentTeams(currentMatch.team1, currentMatch.team2);
+                TeleportWaitingTeams(currentMatch.team1, currentMatch.team2);
+            }
+            else
+            {
+                // Normal match: teleport all teams to their assigned goals
+                if (goal1Pos != Vector3.zero && goal2Pos != Vector3.zero)
+                {
+                    // Default teams
+                    TeleportTeamToPosition("red", goal1Pos);
+                    TeleportTeamToPosition("blue", goal2Pos);
+                    TeleportTeamToPosition("black", goal1Pos); // or could be goal2
+                    
+                    // Custom teams
+                    foreach (var kvp in customTeams)
+                    {
+                        string teamName = kvp.Key;
+                        Vector3 goalPos = (goal1Team == teamName) ? goal1Pos : goal2Pos;
+                        TeleportTeamToPosition(teamName, goalPos);
+                    }
+                }
+            }
         }
         
         [ChatCommand("reset_ball")]
@@ -4330,7 +4438,7 @@ namespace Oxide.Plugins
             // Show mode voting UI to all players
             foreach (var player in BasePlayer.activePlayerList)
             {
-                if (redTeam.Contains(player.userID) || blueTeam.Contains(player.userID) || blackTeam.Contains(player.userID))
+                if (redTeam.Contains(player.userID) || blueTeam.Contains(player.userID) || blackTeam.Contains(player.userID) || playerTeamAssignments.ContainsKey(player.userID))
                 {
                     ShowModeVotingUI(player);
                 }
@@ -4350,7 +4458,7 @@ namespace Oxide.Plugins
                     // Update UI for all players with new time
                     foreach (var p in BasePlayer.activePlayerList)
                     {
-                        if (redTeam.Contains(p.userID) || blueTeam.Contains(p.userID) || blackTeam.Contains(p.userID))
+                        if (redTeam.Contains(p.userID) || blueTeam.Contains(p.userID) || blackTeam.Contains(p.userID) || playerTeamAssignments.ContainsKey(p.userID))
                         {
                             ShowModeVotingUI(p);
                         }
