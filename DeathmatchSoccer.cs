@@ -575,25 +575,13 @@ namespace Oxide.Plugins
                 {
                     if (player == null || !player.IsConnected) continue;
                     
-                    if (redGoalPos != Vector3.zero) 
+                    if (goal1Pos != Vector3.zero) 
                     {
-                        Color col = activeGoals["red"] ? Color.red : new Color(0.5f, 0, 0, 0.5f);
-                        DrawGoal(player, redGoalPos, redGoalRot, col, 1.7f);
+                        DrawGoal(player, goal1Pos, goal1Rot, goal1Color, 1.7f);
                     }
-                    if (blueGoalPos != Vector3.zero) 
+                    if (goal2Pos != Vector3.zero) 
                     {
-                        Color col = activeGoals["blue"] ? Color.blue : new Color(0, 0, 0.5f, 0.5f);
-                        DrawGoal(player, blueGoalPos, blueGoalRot, col, 1.7f);
-                    }
-                    if (blackGoalPos1 != Vector3.zero) 
-                    {
-                        Color col = activeGoals["black1"] ? new Color(0.3f, 0.3f, 0.3f, 1f) : new Color(0.2f, 0.2f, 0.2f, 0.4f);
-                        DrawGoal(player, blackGoalPos1, blackGoalRot1, col, 1.7f);
-                    }
-                    if (blackGoalPos2 != Vector3.zero) 
-                    {
-                        Color col = activeGoals["black2"] ? new Color(0.3f, 0.3f, 0.3f, 1f) : new Color(0.2f, 0.2f, 0.2f, 0.4f);
-                        DrawGoal(player, blackGoalPos2, blackGoalRot2, col, 1.7f);
+                        DrawGoal(player, goal2Pos, goal2Rot, goal2Color, 1.7f);
                     }
                 }
             });
@@ -1932,32 +1920,32 @@ namespace Oxide.Plugins
                 }
                 else if (redTeam.Contains(player.userID))
                 {
-                    goalPos = redGoalPos;
-                    goalRot = redGoalRot;
+                    goalPos = goal1Pos;
+                    goalRot = goal1Rot;
                 }
                 else if (blueTeam.Contains(player.userID))
                 {
-                    goalPos = blueGoalPos;
-                    goalRot = blueGoalRot;
+                    goalPos = goal2Pos;
+                    goalRot = goal2Rot;
                 }
                 else // Black team
                 {
-                    // Determine which black goal position to use
+                    // Determine which goal position to use based on rotation
                     if (activeGoals["black1"])
                     {
-                        goalPos = blackGoalPos1;
-                        goalRot = blackGoalRot1;
+                        goalPos = goal1Pos;
+                        goalRot = goal1Rot;
                     }
                     else if (activeGoals["black2"])
                     {
-                        goalPos = blackGoalPos2;
-                        goalRot = blackGoalRot2;
+                        goalPos = goal2Pos;
+                        goalRot = goal2Rot;
                     }
                     else
                     {
-                        // Default to black1 if neither is active (shouldn't happen in normal gameplay)
-                        goalPos = blackGoalPos1 != Vector3.zero ? blackGoalPos1 : blackGoalPos2;
-                        goalRot = blackGoalPos1 != Vector3.zero ? blackGoalRot1 : blackGoalRot2;
+                        // Default to goal1
+                        goalPos = goal1Pos;
+                        goalRot = goal1Rot;
                     }
                 }
                 
@@ -2844,16 +2832,16 @@ namespace Oxide.Plugins
                     Vector3 home;
                     if (isRed)
                     {
-                        home = redGoalPos;
+                        home = goal1Pos;
                     }
                     else if (isBlue)
                     {
-                        home = blueGoalPos;
+                        home = goal2Pos;
                     }
                     else // Black team
                     {
-                        // Determine which black goal position to use
-                        home = activeGoals["black1"] ? blackGoalPos1 : blackGoalPos2;
+                        // Determine which goal position to use
+                        home = activeGoals["black1"] ? goal1Pos : goal2Pos;
                     }
                     
                     if (home != Vector3.zero && Vector3.Distance(player.transform.position, home) > LeashRadius)
