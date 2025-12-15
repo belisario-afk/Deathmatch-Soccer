@@ -157,6 +157,7 @@ namespace Oxide.Plugins
         private int scoreRed = 0;
         private int scoreBlue = 0;
         private int scoreBlack = 0;
+        private Dictionary<string, int> customTeamScores = new Dictionary<string, int>(); // Track custom team scores
         private bool gameActive = false; 
         private bool matchStarted = false; 
         private bool matchActive = false; // Tracks if a match is currently active
@@ -1157,7 +1158,12 @@ namespace Oxide.Plugins
             if (teamName == "blue") return scoreBlue;
             if (teamName == "black") return scoreBlack;
             
-            // Custom teams - currently not tracked separately in tournament mode
+            // Custom teams - check custom team scores dictionary
+            if (customTeamScores.ContainsKey(teamName))
+            {
+                return customTeamScores[teamName];
+            }
+            
             return 0;
         }
 
@@ -3926,11 +3932,20 @@ namespace Oxide.Plugins
                 }
             }
             
-            // Find new host from team players
+            // Find new host from ALL team players (including custom teams)
             List<ulong> allPlayers = new List<ulong>();
             allPlayers.AddRange(redTeam);
             allPlayers.AddRange(blueTeam);
             allPlayers.AddRange(blackTeam);
+            
+            // Add custom team players
+            foreach (var assignment in playerTeamAssignments)
+            {
+                if (!allPlayers.Contains(assignment.Key))
+                {
+                    allPlayers.Add(assignment.Key);
+                }
+            }
             
             if (allPlayers.Count == 0) 
             {
@@ -3938,7 +3953,7 @@ namespace Oxide.Plugins
                 return;
             }
             
-            // Select random online player as host
+            // Select random online player as host (includes custom teams)
             var onlinePlayers = new List<BasePlayer>();
             foreach (var playerId in allPlayers)
             {
@@ -5386,12 +5401,26 @@ namespace Oxide.Plugins
                     if (team == "RED") scoreRed++; 
                     else if (team == "BLUE") scoreBlue++; 
                     else if (team == "BLACK") scoreBlack++;
+                    else
+                    {
+                        // Custom team scoring
+                        if (!customTeamScores.ContainsKey(team.ToLower()))
+                            customTeamScores[team.ToLower()] = 0;
+                        customTeamScores[team.ToLower()]++;
+                    }
                 }
                 else if (team.ToLower() == team2Playing)
                 {
                     if (team == "RED") scoreRed++; 
                     else if (team == "BLUE") scoreBlue++; 
                     else if (team == "BLACK") scoreBlack++;
+                    else
+                    {
+                        // Custom team scoring
+                        if (!customTeamScores.ContainsKey(team.ToLower()))
+                            customTeamScores[team.ToLower()] = 0;
+                        customTeamScores[team.ToLower()]++;
+                    }
                 }
             }
             else
@@ -5400,6 +5429,13 @@ namespace Oxide.Plugins
                 if (team == "RED") scoreRed++; 
                 else if (team == "BLUE") scoreBlue++; 
                 else if (team == "BLACK") scoreBlack++;
+                else
+                {
+                    // Custom team scoring
+                    if (!customTeamScores.ContainsKey(team.ToLower()))
+                        customTeamScores[team.ToLower()] = 0;
+                    customTeamScores[team.ToLower()]++;
+                }
             }
             
             // Goal scoring effects
