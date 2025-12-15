@@ -3740,20 +3740,9 @@ namespace Oxide.Plugins
 
         private void ShowGoalBanner(string team)
         {
-            // Determine which banner image to use based on current matchup
-            string bannerImage = "Soccer_Goal_Banner_RedBlue"; // Default: Red vs Blue
-            
-            if ((team1Playing == "black" && team2Playing == "red") || (team1Playing == "red" && team2Playing == "black"))
-            {
-                bannerImage = "Soccer_Goal_Banner_BlackRed";
-            }
-            else if ((team1Playing == "blue" && team2Playing == "black") || (team1Playing == "black" && team2Playing == "blue"))
-            {
-                bannerImage = "Soccer_Goal_Banner_BlueBlack";
-            }
-            
-            string col = (team == "RED") ? "1 0.2 0.2" : (team == "BLUE") ? "0.2 0.4 1" : "0.8 0.8 0.8";
-            string teamTag = (team == "RED") ? teamConfigs["red"].Tag : (team == "BLUE") ? teamConfigs["blue"].Tag : teamConfigs["black"].Tag;
+            // Get team display name and color
+            string teamTag = GetTeamDisplayName(team);
+            string col = GetTeamColorString(team);
             foreach (var p in BasePlayer.activePlayerList)
             {
                 CuiHelper.DestroyUi(p, "GoalBanner");
@@ -5676,7 +5665,8 @@ namespace Oxide.Plugins
             
             RefreshScoreboardAll(); ShowGoalBanner(team);
             string mvp = (lastKicker != null) ? lastKicker.displayName : "None";
-            tickerMessages.Add($"GOAL: {team} ({mvp})");
+            string teamName = GetTeamDisplayName(team);
+            tickerMessages.Add($"GOAL: {teamName} ({mvp})");
             
             if (rotationMode)
             {
@@ -5696,7 +5686,7 @@ namespace Oxide.Plugins
 
         private void EndMatch(string winner)
         {
-            string winnerTag = teamConfigs[winner.ToLower()].Tag;
+            string winnerTag = GetTeamDisplayName(winner);
             PrintToChat($"MATCH #{matchNumber} OVER! {winnerTag} WINS!");
             CallMiddleware($"EVENT: MATCH_END. Winner: {winnerTag}");
             if (activeBall != null) activeBall.Kill();
@@ -5754,7 +5744,50 @@ namespace Oxide.Plugins
             if (team == "red") return scoreRed;
             if (team == "blue") return scoreBlue;
             if (team == "black") return scoreBlack;
+            
+            // Check custom team scores
+            if (customTeamScores.ContainsKey(team.ToLower()))
+                return customTeamScores[team.ToLower()];
+            
             return 0;
+        }
+        
+        private string GetTeamDisplayName(string teamIdentifier)
+        {
+            if (string.IsNullOrEmpty(teamIdentifier)) return "Unknown";
+            
+            // Handle default teams (check both cases)
+            string teamLower = teamIdentifier.ToLower();
+            if (teamLower == "red") return teamConfigs["red"].Tag;
+            if (teamLower == "blue") return teamConfigs["blue"].Tag;
+            if (teamLower == "black") return teamConfigs["black"].Tag;
+            
+            // Handle custom teams
+            if (customTeams.ContainsKey(teamLower))
+                return customTeams[teamLower].TeamName;
+            
+            // Fallback to identifier
+            return teamIdentifier;
+        }
+        
+        private Color GetTeamColor(string teamIdentifier)
+        {
+            if (string.IsNullOrEmpty(teamIdentifier)) return Color.white;
+            
+            // Handle default teams
+            string teamLower = teamIdentifier.ToLower();
+            if (teamLower == "red") return teamConfigs["red"].Color;
+            if (teamLower == "blue") return teamConfigs["blue"].Color;
+            if (teamLower == "black") return teamConfigs["black"].Color;
+            
+            // Handle custom teams
+            return GetCustomTeamColor(teamLower);
+        }
+        
+        private string GetTeamColorString(string teamIdentifier)
+        {
+            Color color = GetTeamColor(teamIdentifier);
+            return $"{color.r} {color.g} {color.b}";
         }
         
         private void RotateTeams(string winner, string loser)
@@ -5772,6 +5805,7 @@ namespace Oxide.Plugins
             
             // Reset scores for new match
             scoreRed = 0; scoreBlue = 0; scoreBlack = 0;
+            customTeamScores.Clear(); // Reset custom team scores too
             
             // GOAL SWAPPING LOGIC
             // Determine current goal states before making changes
@@ -6132,8 +6166,8 @@ namespace Oxide.Plugins
         // ==========================================
         private void TriggerCelebrations(string winner)
         {
-            string winnerTag = teamConfigs[winner].Tag;
-            var winnerColor = teamConfigs[winner].Color;
+            string winnerTag = GetTeamDisplayName(winner);
+            string winnerColorStr = GetTeamColorString(winner);
             
             // Team-colored fireworks effect
             timer.Repeat(0.5f, 10, () => {
@@ -6144,13 +6178,13 @@ namespace Oxide.Plugins
             StartDancingLasers(5f, winner);
             
             // Sky text celebration
-            ShowSkyText(winnerTag + " WINS!", winnerColor, 5f);
+            ShowSkyText(winnerTag + " WINS!", winnerColorStr, 5f);
         }
         
         private void TriggerTournamentCelebrations(string winner)
         {
-            string winnerTag = teamConfigs[winner].Tag;
-            var winnerColor = teamConfigs[winner].Color;
+            string winnerTag = GetTeamDisplayName(winner);
+            string winnerColorStr = GetTeamColorString(winner);
             
             // Big team-colored fireworks
             timer.Repeat(0.3f, 20, () => {
@@ -6163,7 +6197,7 @@ namespace Oxide.Plugins
             // Tournament champion text
             ShowSkyText("TOURNAMENT", "1 1 1", 3f, 40f);
             timer.Once(3f, () => ShowSkyText("CHAMPION", "1 1 0", 3f, 35f));
-            timer.Once(6f, () => ShowSkyText(winnerTag, winnerColor, 5f, 45f));
+            timer.Once(6f, () => ShowSkyText(winnerTag, winnerColorStr, 5f, 45f));
         }
         
         private void LaunchFirework(Vector3 position, string team)
