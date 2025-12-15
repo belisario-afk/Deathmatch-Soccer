@@ -5770,9 +5770,9 @@ namespace Oxide.Plugins
             return teamIdentifier;
         }
         
-        private Color GetTeamColor(string teamIdentifier)
+        private string GetTeamColor(string teamIdentifier)
         {
-            if (string.IsNullOrEmpty(teamIdentifier)) return Color.white;
+            if (string.IsNullOrEmpty(teamIdentifier)) return "1 1 1";
             
             // Handle default teams
             string teamLower = teamIdentifier.ToLower();
