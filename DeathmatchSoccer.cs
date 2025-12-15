@@ -403,6 +403,118 @@ namespace Oxide.Plugins
                 Puts($"[Data] No arena data file found at {DataFileName}, using defaults");
             }
         }
+        
+        // CUSTOM TEAMS SAVE/LOAD
+        private void SaveCustomTeams()
+        {
+            Interface.Oxide.DataFileSystem.WriteObject(CustomTeamsDataFile, customTeams);
+            Puts($"[CustomTeams] Saved {customTeams.Count} custom teams");
+        }
+        
+        private void LoadCustomTeams()
+        {
+            if (Interface.Oxide.DataFileSystem.ExistsDatafile(CustomTeamsDataFile))
+            {
+                try
+                {
+                    customTeams = Interface.Oxide.DataFileSystem.ReadObject<Dictionary<string, CustomTeam>>(CustomTeamsDataFile);
+                    
+                    // Rebuild player assignments
+                    playerTeamAssignments.Clear();
+                    foreach (var team in customTeams.Values)
+                    {
+                        foreach (var memberID in team.Members)
+                        {
+                            playerTeamAssignments[memberID] = team.TeamID;
+                        }
+                    }
+                    
+                    Puts($"[CustomTeams] Loaded {customTeams.Count} custom teams");
+                }
+                catch (System.Exception ex)
+                {
+                    Puts($"[CustomTeams] ERROR loading data: {ex.Message}");
+                    customTeams = new Dictionary<string, CustomTeam>();
+                }
+            }
+            else
+            {
+                Puts("[CustomTeams] No data file found, starting fresh");
+                customTeams = new Dictionary<string, CustomTeam>();
+            }
+        }
+        
+        // PLAYER CURRENCY SAVE/LOAD
+        private void SavePlayerCurrency()
+        {
+            Interface.Oxide.DataFileSystem.WriteObject(PlayerCurrencyDataFile, playerCurrency);
+            Puts($"[Currency] Saved currency for {playerCurrency.Count} players");
+        }
+        
+        private void LoadPlayerCurrency()
+        {
+            if (Interface.Oxide.DataFileSystem.ExistsDatafile(PlayerCurrencyDataFile))
+            {
+                try
+                {
+                    playerCurrency = Interface.Oxide.DataFileSystem.ReadObject<Dictionary<ulong, int>>(PlayerCurrencyDataFile);
+                    Puts($"[Currency] Loaded currency for {playerCurrency.Count} players");
+                }
+                catch (System.Exception ex)
+                {
+                    Puts($"[Currency] ERROR loading data: {ex.Message}");
+                    playerCurrency = new Dictionary<ulong, int>();
+                }
+            }
+            else
+            {
+                Puts("[Currency] No data file found, starting fresh");
+                playerCurrency = new Dictionary<ulong, int>();
+            }
+        }
+        
+        // HELPER METHODS FOR CUSTOM TEAMS
+        private BasePlayer FindPlayer(string nameOrID)
+        {
+            foreach (var player in BasePlayer.activePlayerList)
+            {
+                if (player.displayName.ToLower().Contains(nameOrID.ToLower()))
+                    return player;
+                if (player.UserIDString == nameOrID)
+                    return player;
+            }
+            return null;
+        }
+        
+        private string GetPlayerName(ulong playerID)
+        {
+            var player = BasePlayer.FindByID(playerID);
+            if (player != null)
+                return player.displayName;
+            
+            // Try to get from connected players list
+            foreach (var p in BasePlayer.activePlayerList)
+            {
+                if (p.userID == playerID)
+                    return p.displayName;
+            }
+            
+            return $"Player_{playerID}";
+        }
+        
+        private void UpdateOnlineCustomTeams()
+        {
+            onlineCustomTeams.Clear();
+            
+            foreach (var player in BasePlayer.activePlayerList)
+            {
+                if (playerTeamAssignments.ContainsKey(player.userID))
+                {
+                    string teamID = playerTeamAssignments[player.userID];
+                    onlineCustomTeams.Add(teamID);
+                }
+            }
+        }
 
         // ==========================================
         // 3. LIFECYCLE
@@ -411,10 +523,12 @@ namespace Oxide.Plugins
         {
             Puts("═══════════════════════════════════");
             Puts("DeathmatchSoccer Plugin Loaded!");
-            Puts("Version: 5.4.0");
+            Puts("Version: 6.0.0 - Custom Teams Update");
             Puts("═══════════════════════════════════");
             
             LoadArenaData(); // Load saved goals
+            LoadCustomTeams(); // Load custom teams
+            LoadPlayerCurrency(); // Load player currency
             
             if (ImageLibrary != null)
             {
@@ -1038,6 +1152,286 @@ namespace Oxide.Plugins
                 SendReply(player, "✓ Left team! Use /join to select a new team.");
                 Puts($"[Leave] Player {player.displayName} left team (no lobby spawn set)");
             }
+        }
+        
+        // ==========================================
+        // CUSTOM TEAM/KIT SYSTEM COMMANDS
+        // ==========================================
+        
+        [ChatCommand("createteam")]
+        private void CmdCreateTeam(BasePlayer player, string command, string[] args)
+        {
+            if (args.Length < 1)
+            {
+                SendReply(player, "Usage: /createteam <team name>");
+                return;
+            }
+            
+            // Check if player already owns a team
+            foreach (var team in customTeams.Values)
+            {
+                if (team.OwnerID == player.userID)
+                {
+                    SendReply(player, $"You already own a team: {team.TeamName}");
+                    return;
+                }
+            }
+            
+            string teamName = string.Join(" ", args);
+            if (teamName.Length > 30)
+            {
+                SendReply(player, "Team name must be 30 characters or less.");
+                return;
+            }
+            
+            // Create unique team ID
+            string teamID = $"custom_{player.userID}_{DateTime.Now.Ticks}";
+            
+            var newTeam = new CustomTeam
+            {
+                TeamID = teamID,
+                TeamName = teamName,
+                OwnerID = player.userID,
+                Members = new List<ulong> { player.userID },
+                CreatedAt = DateTime.Now
+            };
+            
+            customTeams[teamID] = newTeam;
+            playerTeamAssignments[player.userID] = teamID;
+            
+            SaveCustomTeams();
+            
+            SendReply(player, $"✓ Created team: {teamName}");
+            SendReply(player, "Use /teamkit to configure your team's kit");
+            SendReply(player, "Use /addplayer <name> to add members");
+            
+            Puts($"[CustomTeam] {player.displayName} created team: {teamName} (ID: {teamID})");
+        }
+        
+        [ChatCommand("addplayer")]
+        private void CmdAddPlayer(BasePlayer player, string command, string[] args)
+        {
+            if (args.Length < 1)
+            {
+                SendReply(player, "Usage: /addplayer <player name>");
+                return;
+            }
+            
+            // Find player's team
+            if (!playerTeamAssignments.ContainsKey(player.userID))
+            {
+                SendReply(player, "You don't own a team. Use /createteam first.");
+                return;
+            }
+            
+            string teamID = playerTeamAssignments[player.userID];
+            var team = customTeams[teamID];
+            
+            // Check if they are the owner
+            if (team.OwnerID != player.userID)
+            {
+                SendReply(player, "Only the team owner can add players.");
+                return;
+            }
+            
+            // Check team size
+            if (team.Members.Count >= 6)
+            {
+                SendReply(player, "Your team is full (max 6 players).");
+                return;
+            }
+            
+            // Find target player
+            string targetName = string.Join(" ", args);
+            BasePlayer target = FindPlayer(targetName);
+            
+            if (target == null)
+            {
+                SendReply(player, $"Player not found: {targetName}");
+                return;
+            }
+            
+            if (target.userID == player.userID)
+            {
+                SendReply(player, "You're already on your team!");
+                return;
+            }
+            
+            // Check if already on this team
+            if (team.Members.Contains(target.userID))
+            {
+                SendReply(player, $"{target.displayName} is already on your team.");
+                return;
+            }
+            
+            // Check if on another custom team
+            if (playerTeamAssignments.ContainsKey(target.userID))
+            {
+                SendReply(player, $"{target.displayName} is already on another custom team.");
+                return;
+            }
+            
+            // Add to team
+            team.Members.Add(target.userID);
+            playerTeamAssignments[target.userID] = teamID;
+            
+            SaveCustomTeams();
+            
+            SendReply(player, $"✓ Added {target.displayName} to {team.TeamName}");
+            SendReply(target, $"✓ You've been added to {team.TeamName}!");
+            
+            Puts($"[CustomTeam] {player.displayName} added {target.displayName} to team {team.TeamName}");
+        }
+        
+        [ChatCommand("kickplayer")]
+        private void CmdKickPlayer(BasePlayer player, string command, string[] args)
+        {
+            if (args.Length < 1)
+            {
+                SendReply(player, "Usage: /kickplayer <player name>");
+                return;
+            }
+            
+            // Find player's team
+            if (!playerTeamAssignments.ContainsKey(player.userID))
+            {
+                SendReply(player, "You don't own a team.");
+                return;
+            }
+            
+            string teamID = playerTeamAssignments[player.userID];
+            var team = customTeams[teamID];
+            
+            // Check if they are the owner
+            if (team.OwnerID != player.userID)
+            {
+                SendReply(player, "Only the team owner can kick players.");
+                return;
+            }
+            
+            // Find target player
+            string targetName = string.Join(" ", args);
+            BasePlayer target = FindPlayer(targetName);
+            
+            if (target == null)
+            {
+                SendReply(player, $"Player not found: {targetName}");
+                return;
+            }
+            
+            if (target.userID == player.userID)
+            {
+                SendReply(player, "You can't kick yourself! Use /deleteteam to delete your team.");
+                return;
+            }
+            
+            // Check if on team
+            if (!team.Members.Contains(target.userID))
+            {
+                SendReply(player, $"{target.displayName} is not on your team.");
+                return;
+            }
+            
+            // Remove from team
+            team.Members.Remove(target.userID);
+            playerTeamAssignments.Remove(target.userID);
+            
+            // Strip their kit if they're online and wearing it
+            if (target.IsConnected)
+            {
+                target.inventory.Strip();
+                SendReply(target, $"You've been kicked from {team.TeamName}");
+            }
+            
+            SaveCustomTeams();
+            
+            SendReply(player, $"✓ Kicked {target.displayName} from {team.TeamName}");
+            
+            Puts($"[CustomTeam] {player.displayName} kicked {target.displayName} from team {team.TeamName}");
+        }
+        
+        [ChatCommand("myteam")]
+        private void CmdMyTeam(BasePlayer player, string command, string[] args)
+        {
+            if (!playerTeamAssignments.ContainsKey(player.userID))
+            {
+                SendReply(player, "You're not on a custom team.");
+                SendReply(player, "Use /createteam <name> to create one!");
+                return;
+            }
+            
+            string teamID = playerTeamAssignments[player.userID];
+            var team = customTeams[teamID];
+            
+            SendReply(player, $"═══ {team.TeamName} ═══");
+            SendReply(player, $"Owner: {GetPlayerName(team.OwnerID)}");
+            SendReply(player, $"Members ({team.Members.Count}/6):");
+            
+            foreach (var memberID in team.Members)
+            {
+                string memberName = GetPlayerName(memberID);
+                bool isOnline = BasePlayer.FindByID(memberID) != null;
+                SendReply(player, $"  • {memberName} {(isOnline ? "[ONLINE]" : "[OFFLINE]")}");
+            }
+            
+            if (team.OwnerID == player.userID)
+            {
+                SendReply(player, "");
+                SendReply(player, "Commands:");
+                SendReply(player, "/addplayer <name> - Add a player");
+                SendReply(player, "/kickplayer <name> - Kick a player");
+                SendReply(player, "/teamkit - Configure team kit");
+                SendReply(player, "/deleteteam - Delete your team");
+            }
+        }
+        
+        [ChatCommand("givecurrency")]
+        private void CmdGiveCurrency(BasePlayer player, string command, string[] args)
+        {
+            if (!player.IsAdmin)
+            {
+                SendReply(player, "Only admins can give currency.");
+                return;
+            }
+            
+            if (args.Length < 2)
+            {
+                SendReply(player, "Usage: /givecurrency <player name> <amount>");
+                return;
+            }
+            
+            string targetName = args[0];
+            BasePlayer target = FindPlayer(targetName);
+            
+            if (target == null)
+            {
+                SendReply(player, $"Player not found: {targetName}");
+                return;
+            }
+            
+            int amount;
+            if (!int.TryParse(args[1], out amount))
+            {
+                SendReply(player, "Invalid amount.");
+                return;
+            }
+            
+            if (!playerCurrency.ContainsKey(target.userID))
+            {
+                playerCurrency[target.userID] = 0;
+            }
+            
+            playerCurrency[target.userID] += amount;
+            
+            SavePlayerCurrency();
+            
+            SendReply(player, $"✓ Gave {amount} coins to {target.displayName}");
+            SendReply(player, $"New balance: {playerCurrency[target.userID]} coins");
+            
+            SendReply(target, $"✓ You received {amount} coins from admin!");
+            SendReply(target, $"Balance: {playerCurrency[target.userID]} coins");
+            
+            Puts($"[Currency] Admin {player.displayName} gave {amount} coins to {target.displayName}");
         }
 
         [ConsoleCommand("select_team")]
