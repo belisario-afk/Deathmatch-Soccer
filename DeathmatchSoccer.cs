@@ -3624,7 +3624,9 @@ namespace Oxide.Plugins
                 {
                     if (!string.IsNullOrEmpty(kvp.Value.EmblemUrl))
                     {
-                        return $"Team_Emblem_{kvp.Key}";
+                        string emblemId = $"Team_Emblem_{kvp.Key}";
+                        Puts($"[GetTeamEmblemId] Custom team '{teamName}' → ID: {emblemId}");
+                        return emblemId;
                     }
                 }
             }
@@ -3647,13 +3649,19 @@ namespace Oxide.Plugins
                         string url = (string)EmblemEditor.Call("GetEquippedEmblem", firstPlayerID);
                         if (!string.IsNullOrEmpty(url))
                         {
-                            return $"Player_Emblem_{firstPlayerID}";
+                            string emblemId = $"Player_Emblem_{firstPlayerID}";
+                            Puts($"[GetTeamEmblemId] Default team '{teamName}' → Player ID: {emblemId}");
+                            return emblemId;
                         }
                     }
                 }
-                catch { /* Ignore errors */ }
+                catch (Exception ex)
+                {
+                    Puts($"[GetTeamEmblemId] Error for team '{teamName}': {ex.Message}");
+                }
             }
             
+            Puts($"[GetTeamEmblemId] No emblem found for team '{teamName}'");
             return "";
         }
 
@@ -3692,6 +3700,7 @@ namespace Oxide.Plugins
             if (!string.IsNullOrEmpty(leftEmblemId))
             {
                 string imgPng = GetImg(leftEmblemId);
+                Puts($"[UpdateScoreUI] Left emblem ID: {leftEmblemId}, Png: {(string.IsNullOrEmpty(imgPng) ? "EMPTY" : "LOADED")}");
                 if (!string.IsNullOrEmpty(imgPng))
                 {
                     container.Add(new CuiElement
@@ -3707,6 +3716,7 @@ namespace Oxide.Plugins
                 }
                 else
                 {
+                    Puts($"[UpdateScoreUI] GetImg returned empty for {leftEmblemId} - using color fallback");
                     // Fallback: colored background
                     container.Add(new CuiPanel
                     {
@@ -3718,6 +3728,7 @@ namespace Oxide.Plugins
             }
             else
             {
+                Puts($"[UpdateScoreUI] No emblem ID for left team '{leftTeam}' - using color");
                 // Fallback: colored background
                 container.Add(new CuiPanel
                 {
@@ -5669,7 +5680,8 @@ namespace Oxide.Plugins
             if (IsInside(activeBall.transform.position, goal1Pos, goal1Rot))
             {
                 goalType = "goal1";
-                // Ball went into goal 1 - award point to goal2Team
+                // Ball went into goal 1 - goal1Team DEFENDS this goal, so goal2Team scores
+                // CORRECT: Team that does NOT defend this goal gets the point
                 if (!string.IsNullOrEmpty(goal2Team))
                 {
                     scoringTeam = goal2Team.ToUpper();
@@ -5679,7 +5691,8 @@ namespace Oxide.Plugins
             else if (IsInside(activeBall.transform.position, goal2Pos, goal2Rot))
             {
                 goalType = "goal2";
-                // Ball went into goal 2 - award point to goal1Team
+                // Ball went into goal 2 - goal2Team DEFENDS this goal, so goal1Team scores
+                // CORRECT: Team that does NOT defend this goal gets the point
                 if (!string.IsNullOrEmpty(goal1Team))
                 {
                     scoringTeam = goal1Team.ToUpper();
@@ -5714,49 +5727,27 @@ namespace Oxide.Plugins
         {
             gameActive = false;
             
-            // Only count goals for teams that are playing (in rotation mode)
-            if (rotationMode)
+            // CRITICAL FIX: Only count goals for teams that are actually playing in this match
+            // Check if scoring team is goal1Team or goal2Team (the 2 teams currently playing)
+            string teamLower = team.ToLower();
+            if (teamLower != goal1Team.ToLower() && teamLower != goal2Team.ToLower())
             {
-                if (team.ToLower() == team1Playing) 
-                {
-                    if (team == "RED") scoreRed++; 
-                    else if (team == "BLUE") scoreBlue++; 
-                    else if (team == "BLACK") scoreBlack++;
-                    else
-                    {
-                        // Custom team scoring
-                        if (!customTeamScores.ContainsKey(team.ToLower()))
-                            customTeamScores[team.ToLower()] = 0;
-                        customTeamScores[team.ToLower()]++;
-                    }
-                }
-                else if (team.ToLower() == team2Playing)
-                {
-                    if (team == "RED") scoreRed++; 
-                    else if (team == "BLUE") scoreBlue++; 
-                    else if (team == "BLACK") scoreBlack++;
-                    else
-                    {
-                        // Custom team scoring
-                        if (!customTeamScores.ContainsKey(team.ToLower()))
-                            customTeamScores[team.ToLower()] = 0;
-                        customTeamScores[team.ToLower()]++;
-                    }
-                }
+                // This team is NOT playing in the current match - ignore the goal
+                Puts($"[HandleGoal] Ignoring goal for team '{team}' - not in current match ({goal1Team} vs {goal2Team})");
+                timer.Once(5f, () => { SpawnBall(); gameActive = true; });
+                return;
             }
+            
+            // Award point to the scoring team
+            if (team == "RED") scoreRed++; 
+            else if (team == "BLUE") scoreBlue++; 
+            else if (team == "BLACK") scoreBlack++;
             else
             {
-                // Normal 3-way mode
-                if (team == "RED") scoreRed++; 
-                else if (team == "BLUE") scoreBlue++; 
-                else if (team == "BLACK") scoreBlack++;
-                else
-                {
-                    // Custom team scoring
-                    if (!customTeamScores.ContainsKey(team.ToLower()))
-                        customTeamScores[team.ToLower()] = 0;
-                    customTeamScores[team.ToLower()]++;
-                }
+                // Custom team scoring
+                if (!customTeamScores.ContainsKey(teamLower))
+                    customTeamScores[teamLower] = 0;
+                customTeamScores[teamLower]++;
             }
             
             // Goal scoring effects
