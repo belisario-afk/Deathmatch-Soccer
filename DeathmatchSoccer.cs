@@ -3500,10 +3500,11 @@ namespace Oxide.Plugins
                 weaponVotes[weapon] = 0;
             }
             
-            // Show voting UI to all team players
+            // Show voting UI to all team players (including custom teams)
             foreach (var p in BasePlayer.activePlayerList)
             {
-                if (redTeam.Contains(p.userID) || blueTeam.Contains(p.userID) || blackTeam.Contains(p.userID))
+                ulong playerID = p.userID;
+                if (redTeam.Contains(playerID) || blueTeam.Contains(playerID) || blackTeam.Contains(playerID) || playerTeamAssignments.ContainsKey(playerID))
                 {
                     ShowWeaponVotingUI(p);
                 }
@@ -3699,11 +3700,13 @@ namespace Oxide.Plugins
             {
                 if (player == null || !player.IsConnected) continue;
                 
-                // Determine player's team
+                // Determine player's team (including custom teams)
                 string team = "none";
-                if (redTeam.Contains(player.userID)) team = "red";
-                else if (blueTeam.Contains(player.userID)) team = "blue";
-                else if (blackTeam.Contains(player.userID)) team = "black";
+                ulong playerID = player.userID;
+                if (redTeam.Contains(playerID)) team = "red";
+                else if (blueTeam.Contains(playerID)) team = "blue";
+                else if (blackTeam.Contains(playerID)) team = "black";
+                else if (playerTeamAssignments.ContainsKey(playerID)) team = "custom";
                 
                 if (team == "none") continue; // Only give to team players
                 
