@@ -720,28 +720,22 @@ namespace Oxide.Plugins
             
             if (rotationMode)
             {
-                // Set initial rotation: blue vs red, black waits
-                team1Playing = "blue";
-                team2Playing = "red";
-                waitingTeam = "black";
+                // Use teams assigned by AssignTeamsToGoals() - DO NOT OVERRIDE
+                team1Playing = goal1Team;
+                team2Playing = goal2Team;
+                // waitingTeam already set in AssignTeamsToGoals()
                 
-                // Activate red and blue goals, deactivate black goals
-                activeGoals["red"] = true;
-                activeGoals["blue"] = true;
-                activeGoals["black1"] = false;
-                activeGoals["black2"] = false;
+                // Get team names for display
+                string team1Name = teamConfigs.ContainsKey(team1Playing) ? teamConfigs[team1Playing].Tag : team1Playing;
+                string team2Name = teamConfigs.ContainsKey(team2Playing) ? teamConfigs[team2Playing].Tag : team2Playing;
+                string waitingName = teamConfigs.ContainsKey(waitingTeam) ? teamConfigs[waitingTeam].Tag : waitingTeam;
                 
-                PrintToChat($"ROTATION MATCH #{matchNumber}: {teamConfigs[team1Playing].Tag} vs {teamConfigs[team2Playing].Tag}");
-                PrintToChat($"Next Team: {teamConfigs[waitingTeam].Tag}");
+                PrintToChat($"ROTATION MATCH #{matchNumber}: {team1Name} vs {team2Name}");
+                PrintToChat($"Next Team: {waitingName}");
             }
             else
             {
-                // In 3-way mode, activate all original goals
-                activeGoals["red"] = true;
-                activeGoals["blue"] = true;
-                activeGoals["black1"] = false;
-                activeGoals["black2"] = false;
-                PrintToChat("MATCH STARTED! 3 Teams Battle!");
+                PrintToChat("MATCH STARTED! Battle Time!");
             }
             
             gameActive = true; matchStarted = true; matchActive = true;
@@ -770,11 +764,18 @@ namespace Oxide.Plugins
             bool blueActive = blueTeam.Count > 0;
             bool blackActive = blackTeam.Count > 0;
             
-            // Get list of active custom teams
+            // Get list of active custom teams (WITH ONLINE MEMBERS)
             List<string> activeCustomTeams = new List<string>();
             foreach (var kvp in customTeams)
             {
-                if (kvp.Value.Members.Count > 0)
+                int onlineCount = 0;
+                foreach (var memberID in kvp.Value.Members)
+                {
+                    var member = BasePlayer.FindByID(memberID);
+                    if (member != null && member.IsConnected)
+                        onlineCount++;
+                }
+                if (onlineCount > 0)
                     activeCustomTeams.Add(kvp.Key);
             }
             
