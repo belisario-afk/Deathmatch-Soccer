@@ -5786,8 +5786,8 @@ namespace Oxide.Plugins
         
         private string GetTeamColorString(string teamIdentifier)
         {
-            Color color = GetTeamColor(teamIdentifier);
-            return $"{color.r} {color.g} {color.b}";
+            // GetTeamColor already returns a string, so just return it directly
+            return GetTeamColor(teamIdentifier);
         }
         
         private void RotateTeams(string winner, string loser)
