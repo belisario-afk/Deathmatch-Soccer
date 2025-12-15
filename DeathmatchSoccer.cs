@@ -3000,11 +3000,12 @@ namespace Oxide.Plugins
         {
             CuiHelper.DestroyUi(player, "RoleSelectUI");
             var c = new CuiElementContainer();
+            string p; // Declare variable once at method scope
             
             // Handle custom teams (don't use teamConfigs)
             if (team == "custom")
             {
-                string p = c.Add(new CuiPanel { Image = { Color = "0 0 0 0.9" }, RectTransform = { AnchorMin = "0.25 0.2", AnchorMax = "0.75 0.8" }, CursorEnabled = true }, "Overlay", "RoleSelectUI");
+                p = c.Add(new CuiPanel { Image = { Color = "0 0 0 0.9" }, RectTransform = { AnchorMin = "0.25 0.2", AnchorMax = "0.75 0.8" }, CursorEnabled = true }, "Overlay", "RoleSelectUI");
                 
                 // Title - Generic styling for custom teams
                 c.Add(new CuiLabel { Text = { Text = "CHOOSE ROLE - CUSTOM TEAM", FontSize = 20, Align = TextAnchor.MiddleCenter, Color = "1 1 1 1", Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0 0.88", AnchorMax = "1 0.98" } }, p);
@@ -3039,7 +3040,7 @@ namespace Oxide.Plugins
             
             // Default teams use teamConfigs
             var config = teamConfigs[team];
-            string p = c.Add(new CuiPanel { Image = { Color = "0 0 0 0.9" }, RectTransform = { AnchorMin = "0.25 0.2", AnchorMax = "0.75 0.8" }, CursorEnabled = true }, "Overlay", "RoleSelectUI");
+            p = c.Add(new CuiPanel { Image = { Color = "0 0 0 0.9" }, RectTransform = { AnchorMin = "0.25 0.2", AnchorMax = "0.75 0.8" }, CursorEnabled = true }, "Overlay", "RoleSelectUI");
             
             // Title
             c.Add(new CuiLabel { Text = { Text = $"CHOOSE ROLE - {config.Name}", FontSize = 20, Align = TextAnchor.MiddleCenter, Color = config.Color + " 1", Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0 0.88", AnchorMax = "1 0.98" } }, p);
