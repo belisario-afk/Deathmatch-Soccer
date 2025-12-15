@@ -635,6 +635,7 @@ namespace Oxide.Plugins
                 CuiHelper.DestroyUi(player, "TeamSelectUI");
                 CuiHelper.DestroyUi(player, "LeashHUD");
                 CuiHelper.DestroyUi(player, "HostUI");
+                CuiHelper.DestroyUi(player, "TournamentTreeUI");
             }
         }
         
@@ -4542,13 +4543,13 @@ namespace Oxide.Plugins
                 {
                     // Show current scores
                     int score1 = 0, score2 = 0;
-                    if (match.team1 == "red") score1 = redScore;
-                    else if (match.team1 == "blue") score1 = blueScore;
-                    else if (match.team1 == "black") score1 = blackScore;
+                    if (match.team1 == "red") score1 = scoreRed;
+                    else if (match.team1 == "blue") score1 = scoreBlue;
+                    else if (match.team1 == "black") score1 = scoreBlack;
                     
-                    if (match.team2 == "red") score2 = redScore;
-                    else if (match.team2 == "blue") score2 = blueScore;
-                    else if (match.team2 == "black") score2 = blackScore;
+                    if (match.team2 == "red") score2 = scoreRed;
+                    else if (match.team2 == "blue") score2 = scoreBlue;
+                    else if (match.team2 == "black") score2 = scoreBlack;
                     
                     statusText = $"Score: {score1} - {score2}";
                     container.Add(new CuiLabel
