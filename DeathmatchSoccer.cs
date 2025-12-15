@@ -892,7 +892,7 @@ namespace Oxide.Plugins
             Puts($"[AssignTeamsToGoals] Goal 1: {goal1Team} | Goal 2: {goal2Team}");
         }
         
-        private Color GetCustomTeamColor(string teamName)
+        private string GetCustomTeamColor(string teamName)
         {
             // Use hash-based color selection from predefined palette (matches team selection UI)
             string[] teamColors = { 
@@ -910,8 +910,7 @@ namespace Oxide.Plugins
             
             // Generate consistent color based on team name hash
             int index = Math.Abs(teamName.GetHashCode()) % teamColors.Length;
-            string[] rgb = teamColors[index].Split(' ');
-            return new Color(float.Parse(rgb[0]), float.Parse(rgb[1]), float.Parse(rgb[2]));
+            return teamColors[index];
         }
         
         // ==========================================
