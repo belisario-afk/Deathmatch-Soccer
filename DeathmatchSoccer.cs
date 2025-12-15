@@ -909,9 +909,9 @@ namespace Oxide.Plugins
             List<string> teams = new List<string>();
             
             // Add default teams with players
-            if (redTeamPlayers.Count > 0) teams.Add("red");
-            if (blueTeamPlayers.Count > 0) teams.Add("blue");
-            if (blackTeamPlayers.Count > 0) teams.Add("black");
+            if (redTeam.Count > 0) teams.Add("red");
+            if (blueTeam.Count > 0) teams.Add("blue");
+            if (blackTeam.Count > 0) teams.Add("black");
             
             // Add custom teams with online members
             foreach (var kvp in customTeams)
