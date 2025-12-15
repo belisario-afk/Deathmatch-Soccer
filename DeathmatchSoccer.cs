@@ -506,12 +506,25 @@ namespace Oxide.Plugins
         {
             onlineCustomTeams.Clear();
             
-            foreach (var player in BasePlayer.activePlayerList)
+            // Scan all custom teams and check if ANY member is online
+            foreach (var kvp in customTeams)
             {
-                if (playerTeamAssignments.ContainsKey(player.userID))
+                var team = kvp.Value;
+                bool hasOnlineMembers = false;
+                
+                foreach (var memberID in team.Members)
                 {
-                    string teamID = playerTeamAssignments[player.userID];
-                    onlineCustomTeams.Add(teamID);
+                    var member = BasePlayer.FindByID(memberID);
+                    if (member != null && member.IsConnected)
+                    {
+                        hasOnlineMembers = true;
+                        break;
+                    }
+                }
+                
+                if (hasOnlineMembers)
+                {
+                    onlineCustomTeams.Add(team.TeamID);
                 }
             }
         }
@@ -529,6 +542,7 @@ namespace Oxide.Plugins
             LoadArenaData(); // Load saved goals
             LoadCustomTeams(); // Load custom teams
             LoadPlayerCurrency(); // Load player currency
+            UpdateOnlineCustomTeams(); // Track online custom teams from start
             
             if (ImageLibrary != null)
             {
