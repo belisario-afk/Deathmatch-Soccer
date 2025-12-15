@@ -90,6 +90,7 @@ namespace Oxide.Plugins
 
         [PluginReference] Plugin ImageLibrary;
         [PluginReference] Plugin Skins;
+        [PluginReference] Plugin EmblemEditor;
 
         // CUSTOM SKIN IDS (Configure these for each team)
         private Dictionary<string, TeamSkins> teamSkins = new Dictionary<string, TeamSkins>
@@ -322,6 +323,9 @@ namespace Oxide.Plugins
             // Goalie Kit (heavy plate armor)
             public ulong GoalieJacketSkin { get; set; }
             public ulong GoaliePantsSkin { get; set; }
+            
+            // Team Emblem
+            public string EmblemUrl { get; set; }
             
             public DateTime CreatedAt { get; set; }
         }
@@ -1885,6 +1889,24 @@ namespace Oxide.Plugins
                 Members = new List<ulong> { player.userID },
                 CreatedAt = DateTime.Now
             };
+            
+            // Fetch owner's emblem from EmblemEditor plugin
+            if (EmblemEditor != null)
+            {
+                try
+                {
+                    string emblemUrl = (string)EmblemEditor.Call("GetEquippedEmblem", player.userID);
+                    if (!string.IsNullOrEmpty(emblemUrl))
+                    {
+                        newTeam.EmblemUrl = emblemUrl;
+                        Puts($"[CustomTeam] Team '{teamName}' created with emblem: {emblemUrl}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Puts($"[CustomTeam] Error fetching emblem: {ex.Message}");
+                }
+            }
             
             customTeams[teamID] = newTeam;
             playerTeamAssignments[player.userID] = teamID;
