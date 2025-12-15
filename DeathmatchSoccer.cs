@@ -3091,8 +3091,34 @@ namespace Oxide.Plugins
             if (hasWeapon)
                 return;
             
-            // Give weapon to belt
-            GiveItemWithSkin(player, votedWeapon, 1, 0, player.inventory.containerBelt);
+            // Find first empty belt slot to avoid overwriting existing items
+            int emptySlot = -1;
+            for (int i = 0; i < player.inventory.containerBelt.capacity; i++)
+            {
+                if (player.inventory.containerBelt.GetSlot(i) == null)
+                {
+                    emptySlot = i;
+                    break;
+                }
+            }
+            
+            if (emptySlot < 0)
+            {
+                SendReply(player, "<color=#FF6B35>No room in hotbar for bonus weapon - clear a slot!</color>");
+                return;
+            }
+            
+            // Create weapon and place in specific empty slot
+            Item weapon = ItemManager.CreateByName(votedWeapon, 1, 0);
+            if (weapon != null)
+            {
+                if (!weapon.MoveToContainer(player.inventory.containerBelt, emptySlot))
+                {
+                    weapon.Remove();
+                    SendReply(player, "<color=#FF6B35>Failed to add bonus weapon to hotbar!</color>");
+                    return;
+                }
+            }
             
             // Add appropriate ammo based on weapon type
             if (votedWeapon.Contains("rifle.ak") || votedWeapon.Contains("rifle.lr300") || votedWeapon.Contains("rifle.m249"))
@@ -3617,7 +3643,23 @@ namespace Oxide.Plugins
         {
             if (string.IsNullOrEmpty(teamName)) return "";
             
-            // For custom teams - use team ID
+            // Check if this is a custom team ID (direct lookup)
+            if (teamName.StartsWith("custom_") && customTeams.ContainsKey(teamName))
+            {
+                var team = customTeams[teamName];
+                if (!string.IsNullOrEmpty(team.EmblemUrl))
+                {
+                    string emblemId = $"Team_Emblem_{teamName}";
+                    Puts($"[GetTeamEmblemId] Custom team ID '{teamName}' → Emblem ID: {emblemId}");
+                    return emblemId;
+                }
+                else
+                {
+                    Puts($"[GetTeamEmblemId] Custom team ID '{teamName}' has no emblem URL");
+                }
+            }
+            
+            // Fallback: Search by team name (for display name lookups)
             foreach (var kvp in customTeams)
             {
                 if (kvp.Value.TeamName.ToLower() == teamName.ToLower())
@@ -3625,7 +3667,7 @@ namespace Oxide.Plugins
                     if (!string.IsNullOrEmpty(kvp.Value.EmblemUrl))
                     {
                         string emblemId = $"Team_Emblem_{kvp.Key}";
-                        Puts($"[GetTeamEmblemId] Custom team '{teamName}' → ID: {emblemId}");
+                        Puts($"[GetTeamEmblemId] Custom team name '{teamName}' → ID: {emblemId}");
                         return emblemId;
                     }
                 }
@@ -3650,7 +3692,7 @@ namespace Oxide.Plugins
                         if (!string.IsNullOrEmpty(url))
                         {
                             string emblemId = $"Player_Emblem_{firstPlayerID}";
-                            Puts($"[GetTeamEmblemId] Default team '{teamName}' → Player ID: {emblemId}");
+                            Puts($"[GetTeamEmblemId] Default team '{teamName}' → Player Emblem ID: {emblemId}");
                             return emblemId;
                         }
                     }
