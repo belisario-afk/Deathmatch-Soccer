@@ -1096,6 +1096,105 @@ namespace Oxide.Plugins
             SendReply(player, "Goal debug is now ALWAYS ON for all players!");
             SendReply(player, "Goals are automatically displayed with thick visualization 24/7.");
         }
+        
+        // TOURNAMENT ADMIN COMMANDS
+        [ChatCommand("set_waiting_spawn")]
+        private void CmdSetWaitingSpawn(BasePlayer player, string command, string[] args)
+        {
+            if (!player.IsAdmin) return;
+            
+            waitingAreaSpawnPos = player.transform.position;
+            SendReply(player, $"✓ Waiting area spawn set at {waitingAreaSpawnPos}");
+            SendReply(player, "Non-playing teams will spawn here during tournaments.");
+            Puts($"[Tournament] Waiting area spawn set at {waitingAreaSpawnPos}");
+        }
+        
+        [ChatCommand("start_tournament")]
+        private void CmdStartTournament(BasePlayer player, string command, string[] args)
+        {
+            if (!player.IsAdmin) return;
+            
+            if (tournamentActive)
+            {
+                SendReply(player, "<color=#FF0000>❌ Tournament already active!</color>");
+                return;
+            }
+            
+            // Generate tournament bracket
+            GenerateTournamentBracket();
+            
+            if (tournamentBracket.Count == 0)
+            {
+                SendReply(player, "<color=#FF0000>❌ Not enough teams to start tournament!</color>");
+                SendReply(player, "Need at least 2 teams with players.");
+                return;
+            }
+            
+            tournamentActive = true;
+            currentMatchIndex = 0;
+            
+            PrintToChat($"<color=#FFD700>════════════════════════════════════════</color>");
+            PrintToChat($"<color=#FFD700>🏆 TOURNAMENT MODE ACTIVATED!</color>");
+            PrintToChat($"<color=#FFD700>📊 {tournamentBracket.Count} matches in bracket</color>");
+            PrintToChat($"<color=#FFD700>════════════════════════════════════════</color>");
+            
+            // Start first match
+            StartTournamentMatch(0);
+        }
+        
+        [ChatCommand("stop_tournament")]
+        private void CmdStopTournament(BasePlayer player, string command, string[] args)
+        {
+            if (!player.IsAdmin) return;
+            
+            if (!tournamentActive)
+            {
+                SendReply(player, "<color=#FF0000>❌ No tournament active!</color>");
+                return;
+            }
+            
+            tournamentActive = false;
+            tournamentBracket.Clear();
+            currentMatchIndex = 0;
+            
+            PrintToChat($"<color=#FFD700>🏆 Tournament ended by admin</color>");
+            SendReply(player, "✓ Tournament stopped.");
+        }
+        
+        [ChatCommand("next_match")]
+        private void CmdNextMatch(BasePlayer player, string command, string[] args)
+        {
+            if (!player.IsAdmin) return;
+            
+            if (!tournamentActive)
+            {
+                SendReply(player, "<color=#FF0000>❌ No tournament active!</color>");
+                return;
+            }
+            
+            AdvanceTournament();
+        }
+        
+        [ChatCommand("tournament_status")]
+        private void CmdTournamentStatus(BasePlayer player, string command, string[] args)
+        {
+            if (!player.IsAdmin) return;
+            
+            if (!tournamentActive)
+            {
+                SendReply(player, "No tournament active.");
+                return;
+            }
+            
+            SendReply(player, $"=== TOURNAMENT STATUS ===");
+            SendReply(player, $"Match {currentMatchIndex + 1}/{tournamentBracket.Count}");
+            
+            var currentMatch = tournamentBracket[currentMatchIndex];
+            SendReply(player, $"Current: {currentMatch.team1} vs {currentMatch.team2}");
+            SendReply(player, $"Completed: {currentMatch.isComplete}");
+            if (currentMatch.isComplete)
+                SendReply(player, $"Winner: {currentMatch.winner}");
+        }
 
         [ChatCommand("setskin")]
         private void CmdSetSkin(BasePlayer player, string command, string[] args)
