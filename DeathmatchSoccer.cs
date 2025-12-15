@@ -877,13 +877,24 @@ namespace Oxide.Plugins
         
         private Color GetCustomTeamColor(string teamName)
         {
-            // Get color for custom team from customTeamColors dictionary
-            if (customTeamColors.ContainsKey(teamName))
-            {
-                return customTeamColors[teamName];
-            }
-            // Default to white if not found
-            return new Color(1f, 1f, 1f);
+            // Use hash-based color selection from predefined palette (matches team selection UI)
+            string[] teamColors = { 
+                "1 0.55 0",       // Orange
+                "0.58 0.44 0.86", // Purple
+                "0 0.81 0.82",    // Cyan
+                "1 0.84 0",       // Gold
+                "1 0.41 0.71",    // Pink
+                "0.20 0.80 0.20", // Green
+                "1 0.50 0.31",    // Coral
+                "0 0.50 0.50",    // Teal
+                "1 0 1",          // Magenta
+                "1 1 0"           // Yellow
+            };
+            
+            // Generate consistent color based on team name hash
+            int index = Math.Abs(teamName.GetHashCode()) % teamColors.Length;
+            string[] rgb = teamColors[index].Split(' ');
+            return new Color(float.Parse(rgb[0]), float.Parse(rgb[1]), float.Parse(rgb[2]));
         }
         
         // ==========================================
