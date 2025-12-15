@@ -706,6 +706,50 @@ namespace Oxide.Plugins
         }
         
         // Actually start the match after voting completes
+        // Register all player emblems with ImageLibrary
+        private void RegisterPlayerEmblems()
+        {
+            if (EmblemEditor == null || ImageLibrary == null) return;
+            
+            try
+            {
+                // Register emblems for all team players
+                foreach (ulong playerID in redTeam)
+                {
+                    string url = (string)EmblemEditor.Call("GetEquippedEmblem", playerID);
+                    if (!string.IsNullOrEmpty(url))
+                    {
+                        string emblemId = $"Player_Emblem_{playerID}";
+                        ImageLibrary.Call("AddImage", url, emblemId);
+                    }
+                }
+                
+                foreach (ulong playerID in blueTeam)
+                {
+                    string url = (string)EmblemEditor.Call("GetEquippedEmblem", playerID);
+                    if (!string.IsNullOrEmpty(url))
+                    {
+                        string emblemId = $"Player_Emblem_{playerID}";
+                        ImageLibrary.Call("AddImage", url, emblemId);
+                    }
+                }
+                
+                foreach (ulong playerID in blackTeam)
+                {
+                    string url = (string)EmblemEditor.Call("GetEquippedEmblem", playerID);
+                    if (!string.IsNullOrEmpty(url))
+                    {
+                        string emblemId = $"Player_Emblem_{playerID}";
+                        ImageLibrary.Call("AddImage", url, emblemId);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Puts($"[RegisterPlayerEmblems] Error: {ex.Message}");
+            }
+        }
+        
         private void BeginActualMatch()
         {
             // Do NOT reset gameMode here - it's set by mode voting
@@ -714,6 +758,9 @@ namespace Oxide.Plugins
             scoreRed = 0; scoreBlue = 0; scoreBlack = 0;
             matchNumber = 1;
             rerollUsedThisMatch = false; // Reset reroll flag for new match
+            
+            // Register player emblems with ImageLibrary before match starts
+            RegisterPlayerEmblems();
             
             // Assign teams to goals dynamically
             AssignTeamsToGoals();
@@ -1882,6 +1929,14 @@ namespace Oxide.Plugins
                     {
                         newTeam.EmblemUrl = emblemUrl;
                         Puts($"[CustomTeam] Team '{teamName}' created with emblem: {emblemUrl}");
+                        
+                        // Register emblem with ImageLibrary
+                        if (ImageLibrary != null)
+                        {
+                            string emblemId = $"Team_Emblem_{teamID}";
+                            ImageLibrary.Call("AddImage", emblemUrl, emblemId);
+                            Puts($"[CustomTeam] Registered emblem with ImageLibrary: {emblemId}");
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -3556,6 +3611,51 @@ namespace Oxide.Plugins
             // No emblem found - return empty (will use fallback)
             return "";
         }
+        
+        // Get ImageLibrary emblem ID for a team
+        private string GetTeamEmblemId(string teamName)
+        {
+            if (string.IsNullOrEmpty(teamName)) return "";
+            
+            // For custom teams - use team ID
+            foreach (var kvp in customTeams)
+            {
+                if (kvp.Value.TeamName.ToLower() == teamName.ToLower())
+                {
+                    if (!string.IsNullOrEmpty(kvp.Value.EmblemUrl))
+                    {
+                        return $"Team_Emblem_{kvp.Key}";
+                    }
+                }
+            }
+            
+            // For default teams - try to get player emblem
+            if (EmblemEditor != null && ImageLibrary != null)
+            {
+                try
+                {
+                    ulong firstPlayerID = 0;
+                    if (teamName == "red" && redTeam.Count > 0)
+                        firstPlayerID = redTeam[0];
+                    else if (teamName == "blue" && blueTeam.Count > 0)
+                        firstPlayerID = blueTeam[0];
+                    else if (teamName == "black" && blackTeam.Count > 0)
+                        firstPlayerID = blackTeam[0];
+                    
+                    if (firstPlayerID != 0)
+                    {
+                        string url = (string)EmblemEditor.Call("GetEquippedEmblem", firstPlayerID);
+                        if (!string.IsNullOrEmpty(url))
+                        {
+                            return $"Player_Emblem_{firstPlayerID}";
+                        }
+                    }
+                }
+                catch { /* Ignore errors */ }
+            }
+            
+            return "";
+        }
 
         private void UpdateScoreUI(BasePlayer player)
         {
@@ -3584,23 +3684,37 @@ namespace Oxide.Plugins
             string leftColor = GetTeamColor(leftTeam);
             string rightColor = GetTeamColor(rightTeam);
             
-            // Get team emblems for backgrounds
-            string leftEmblemUrl = GetTeamEmblemUrl(leftTeam);
-            string rightEmblemUrl = GetTeamEmblemUrl(rightTeam);
+            // Get team emblem IDs from ImageLibrary
+            string leftEmblemId = GetTeamEmblemId(leftTeam);
+            string rightEmblemId = GetTeamEmblemId(rightTeam);
             
-            // Left Team Background (emblem or color fallback)
-            if (!string.IsNullOrEmpty(leftEmblemUrl))
+            // Left Team Background (emblem via ImageLibrary or color fallback)
+            if (!string.IsNullOrEmpty(leftEmblemId))
             {
-                container.Add(new CuiElement
+                string imgPng = GetImg(leftEmblemId);
+                if (!string.IsNullOrEmpty(imgPng))
                 {
-                    Name = "LeftEmblemBG",
-                    Parent = "SoccerScoreboard",
-                    Components =
+                    container.Add(new CuiElement
                     {
-                        new CuiRawImageComponent { Url = leftEmblemUrl, Color = "1 1 1 0.3" },
-                        new CuiRectTransformComponent { AnchorMin = "0 0", AnchorMax = "0.47 1" }
-                    }
-                });
+                        Name = "LeftEmblemBG",
+                        Parent = "SoccerScoreboard",
+                        Components =
+                        {
+                            new CuiRawImageComponent { Png = imgPng, Color = "1 1 1 0.3" },
+                            new CuiRectTransformComponent { AnchorMin = "0 0", AnchorMax = "0.47 1" }
+                        }
+                    });
+                }
+                else
+                {
+                    // Fallback: colored background
+                    container.Add(new CuiPanel
+                    {
+                        Image = { Color = leftColor + " 0.15" },
+                        RectTransform = { AnchorMin = "0 0", AnchorMax = "0.47 1" },
+                        CursorEnabled = false
+                    }, "SoccerScoreboard", "LeftEmblemBG");
+                }
             }
             else
             {
@@ -3613,19 +3727,33 @@ namespace Oxide.Plugins
                 }, "SoccerScoreboard", "LeftEmblemBG");
             }
             
-            // Right Team Background (emblem or color fallback)
-            if (!string.IsNullOrEmpty(rightEmblemUrl))
+            // Right Team Background (emblem via ImageLibrary or color fallback)
+            if (!string.IsNullOrEmpty(rightEmblemId))
             {
-                container.Add(new CuiElement
+                string imgPng = GetImg(rightEmblemId);
+                if (!string.IsNullOrEmpty(imgPng))
                 {
-                    Name = "RightEmblemBG",
-                    Parent = "SoccerScoreboard",
-                    Components =
+                    container.Add(new CuiElement
                     {
-                        new CuiRawImageComponent { Url = rightEmblemUrl, Color = "1 1 1 0.3" },
-                        new CuiRectTransformComponent { AnchorMin = "0.53 0", AnchorMax = "1 1" }
-                    }
-                });
+                        Name = "RightEmblemBG",
+                        Parent = "SoccerScoreboard",
+                        Components =
+                        {
+                            new CuiRawImageComponent { Png = imgPng, Color = "1 1 1 0.3" },
+                            new CuiRectTransformComponent { AnchorMin = "0.53 0", AnchorMax = "1 1" }
+                        }
+                    });
+                }
+                else
+                {
+                    // Fallback: colored background
+                    container.Add(new CuiPanel
+                    {
+                        Image = { Color = rightColor + " 0.15" },
+                        RectTransform = { AnchorMin = "0.53 0", AnchorMax = "1 1" },
+                        CursorEnabled = false
+                    }, "SoccerScoreboard", "RightEmblemBG");
+                }
             }
             else
             {
@@ -4880,47 +5008,89 @@ namespace Oxide.Plugins
             }
         }
         
+        // Helper method to check if player is in any custom team
+        private bool IsPlayerInCustomTeam(ulong playerID)
+        {
+            foreach (var team in customTeams.Values)
+            {
+                if (team.Members.Contains(playerID))
+                    return true;
+            }
+            return false;
+        }
+        
+        // Helper method to get player's goal position based on their team
+        private Vector3 GetPlayerGoalPosition(ulong playerID)
+        {
+            // Check default teams first
+            if (redTeam.Contains(playerID)) return goal1Pos;
+            if (blueTeam.Contains(playerID)) return goal2Pos;
+            if (blackTeam.Contains(playerID)) return goal1Pos;
+            
+            // Check custom teams
+            foreach (var kvp in customTeams)
+            {
+                if (kvp.Value.Members.Contains(playerID))
+                {
+                    string teamID = kvp.Key;
+                    // Check which goal this custom team is assigned to
+                    if (goal1Team.ToLower() == teamID) return goal1Pos;
+                    if (goal2Team.ToLower() == teamID) return goal2Pos;
+                }
+            }
+            
+            // Fallback to goal1
+            return goal1Pos;
+        }
+        
+        // Helper method to get player's goal rotation based on their team
+        private Quaternion GetPlayerGoalRotation(ulong playerID)
+        {
+            // Check default teams first
+            if (redTeam.Contains(playerID)) return goal1Rot;
+            if (blueTeam.Contains(playerID)) return goal2Rot;
+            if (blackTeam.Contains(playerID)) return goal1Rot;
+            
+            // Check custom teams
+            foreach (var kvp in customTeams)
+            {
+                if (kvp.Value.Members.Contains(playerID))
+                {
+                    string teamID = kvp.Key;
+                    // Check which goal this custom team is assigned to
+                    if (goal1Team.ToLower() == teamID) return goal1Rot;
+                    if (goal2Team.ToLower() == teamID) return goal2Rot;
+                }
+            }
+            
+            // Fallback to goal1
+            return goal1Rot;
+        }
+        
         void OnPlayerRespawn(BasePlayer player)
         {
             Puts($"[OnPlayerRespawn] Called for {player.displayName}");
             Puts($"[OnPlayerRespawn] Match started: {matchStarted}");
-            Puts($"[OnPlayerRespawn] On team: {redTeam.Contains(player.userID) || blueTeam.Contains(player.userID) || blackTeam.Contains(player.userID)}");
             
-            if (matchStarted && (redTeam.Contains(player.userID) || blueTeam.Contains(player.userID) || blackTeam.Contains(player.userID)))
+            // Check if player is on any team (default or custom)
+            bool isOnTeam = redTeam.Contains(player.userID) || 
+                            blueTeam.Contains(player.userID) || 
+                            blackTeam.Contains(player.userID) ||
+                            IsPlayerInCustomTeam(player.userID);
+            
+            Puts($"[OnPlayerRespawn] On team: {isOnTeam}");
+            
+            if (matchStarted && isOnTeam)
             {
                 NextTick(() => {
                     if (!playerRoles.ContainsKey(player.userID)) playerRoles[player.userID] = "Striker";
                     string role = playerRoles[player.userID];
                     
-                    Vector3 goalPos;
-                    Quaternion goalRot;
+                    // Get correct goal position and rotation for player's team
+                    Vector3 goalPos = GetPlayerGoalPosition(player.userID);
+                    Quaternion goalRot = GetPlayerGoalRotation(player.userID);
                     
-                    if (redTeam.Contains(player.userID))
-                    {
-                        goalPos = goal1Pos;
-                        goalRot = goal1Rot;
-                    }
-                    else if (blueTeam.Contains(player.userID))
-                    {
-                        goalPos = goal2Pos;
-                        goalRot = goal2Rot;
-                    }
-                    else // Black team
-                    {
-                        // Determine which goal position to use based on rotation
-                        if (rotationMode)
-                        {
-                            goalPos = goal1Pos;
-                            goalRot = goal1Rot;
-                        }
-                        else
-                        {
-                            goalPos = goal2Pos;
-                            goalRot = goal2Rot;
-                        }
-                    }
-                    
-                    // Force instant respawn
+                    // Force instant respawn at goal
                     if (goalPos != Vector3.zero) 
                     {
                         player.MovePosition(goalPos + (goalRot * Vector3.forward * 5f));
