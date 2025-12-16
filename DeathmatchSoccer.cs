@@ -2296,6 +2296,66 @@ namespace Oxide.Plugins
             }
         }
         
+        [ChatCommand("updateemblem")]
+        private void CmdUpdateEmblem(BasePlayer player, string command, string[] args)
+        {
+            // Find player's team
+            if (!playerTeamAssignments.ContainsKey(player.userID))
+            {
+                SendReply(player, "You don't own a team. Create one with /createteam");
+                return;
+            }
+            
+            string teamID = playerTeamAssignments[player.userID];
+            if (!customTeams.ContainsKey(teamID))
+            {
+                SendReply(player, "ERROR: Team data not found.");
+                return;
+            }
+            
+            var team = customTeams[teamID];
+            
+            // Fetch current emblem from EmblemEditor
+            if (EmblemEditor == null)
+            {
+                SendReply(player, "ERROR: EmblemEditor plugin not loaded!");
+                SendReply(player, "Contact admin to install EmblemEditor.cs");
+                return;
+            }
+            
+            try
+            {
+                string emblemUrl = (string)EmblemEditor.Call("GetEquippedEmblem", player.userID);
+                if (string.IsNullOrEmpty(emblemUrl))
+                {
+                    SendReply(player, "You don't have an emblem equipped!");
+                    SendReply(player, "Use /emblem to create one first.");
+                    return;
+                }
+                
+                // Update team emblem
+                team.EmblemUrl = emblemUrl;
+                SaveCustomTeams();
+                
+                // Register with ImageLibrary
+                if (ImageLibrary != null)
+                {
+                    string emblemId = $"Team_Emblem_{teamID}";
+                    ImageLibrary.Call("AddImage", emblemUrl, emblemId);
+                    Puts($"[UpdateEmblem] Registered emblem {emblemId} for team {team.TeamName}");
+                }
+                
+                SendReply(player, $"✓ Team emblem updated!");
+                SendReply(player, "Your emblem will show in the next match.");
+                Puts($"[CustomTeam] {player.displayName} updated emblem for team {team.TeamName}");
+            }
+            catch (Exception ex)
+            {
+                SendReply(player, "ERROR: Failed to fetch emblem from EmblemEditor");
+                Puts($"[UpdateEmblem] Error: {ex.Message}");
+            }
+        }
+        
         [ChatCommand("deleteteam")]
         private void CmdDeleteTeam(BasePlayer player, string command, string[] args)
         {
@@ -3647,16 +3707,42 @@ namespace Oxide.Plugins
             if (teamName.StartsWith("custom_") && customTeams.ContainsKey(teamName))
             {
                 var team = customTeams[teamName];
+                
+                // If team has stored emblem URL, use it
                 if (!string.IsNullOrEmpty(team.EmblemUrl))
                 {
                     string emblemId = $"Team_Emblem_{teamName}";
                     Puts($"[GetTeamEmblemId] Custom team ID '{teamName}' → Emblem ID: {emblemId}");
                     return emblemId;
                 }
-                else
+                
+                // If no stored emblem, try to fetch from EmblemEditor dynamically
+                if (EmblemEditor != null && ImageLibrary != null)
                 {
-                    Puts($"[GetTeamEmblemId] Custom team ID '{teamName}' has no emblem URL");
+                    try
+                    {
+                        string emblemUrl = (string)EmblemEditor.Call("GetEquippedEmblem", team.OwnerID);
+                        if (!string.IsNullOrEmpty(emblemUrl))
+                        {
+                            // Register emblem on-the-fly
+                            string emblemId = $"Team_Emblem_{teamName}";
+                            ImageLibrary.Call("AddImage", emblemUrl, emblemId);
+                            
+                            // Update team data for next time
+                            team.EmblemUrl = emblemUrl;
+                            SaveCustomTeams();
+                            
+                            Puts($"[GetTeamEmblemId] Dynamically fetched emblem for '{teamName}' → {emblemId}");
+                            return emblemId;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Puts($"[GetTeamEmblemId] Failed to fetch emblem from EmblemEditor: {ex.Message}");
+                    }
                 }
+                
+                Puts($"[GetTeamEmblemId] Custom team ID '{teamName}' has no emblem URL");
             }
             
             // Fallback: Search by team name (for display name lookups)
