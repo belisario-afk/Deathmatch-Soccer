@@ -345,26 +345,26 @@
                 </div>
             </div>
             <div class="toolbar">
-                <button class="btn" onclick="undo()">↶ Undo</button>
-                <button class="btn" onclick="redo()">↷ Redo</button>
-                <button class="btn" onclick="bringForward()">▲</button>
-                <button class="btn" onclick="sendBackward()">▼</button>
-                <button class="btn" onclick="duplicateObj()">⧉ Clone</button>
-                <button class="btn" onclick="flipH()">↔</button>
-                <button class="btn" onclick="flipV()">↕</button>
-                <button class="btn" onclick="deleteObj()">🗑</button>
+                <button class="btn" onclick="undo()" title="Undo last action (Ctrl+Z)">↶ Undo</button>
+                <button class="btn" onclick="redo()" title="Redo (Ctrl+Y)">↷ Redo</button>
+                <button class="btn" onclick="bringForward()" title="Bring forward">▲</button>
+                <button class="btn" onclick="sendBackward()" title="Send backward">▼</button>
+                <button class="btn" onclick="duplicateObj()" title="Duplicate selected object (Ctrl+D)">⧉ Clone</button>
+                <button class="btn" onclick="flipH()" title="Flip horizontally">↔</button>
+                <button class="btn" onclick="flipV()" title="Flip vertically">↕</button>
+                <button class="btn" onclick="deleteObj()" title="Delete selected (Delete key)">🗑</button>
                 <input type="file" id="imageUpload" accept="image/*" onchange="uploadImage(event)">
-                <button class="btn" onclick="document.getElementById('imageUpload').click()">📷 Image</button>
-                <button class="btn" onclick="addText()">✏ Text</button>
+                <button class="btn" onclick="document.getElementById('imageUpload').click()" title="Upload your own image">📷 Image</button>
+                <button class="btn" onclick="addText()" title="Add text with multiple fonts">✏ Text</button>
             </div>
             <div class="canvas-wrapper">
                 <canvas id="c" width="1133" height="207"></canvas>
             </div>
             <div class="toolbar" style="margin-top:15px">
-                <button class="btn" onclick="saveLocal()">💾 Save Local</button>
-                <button class="btn" onclick="loadLocal()">📂 Load Local</button>
-                <button class="btn" onclick="clearCanvas()">🗑 Clear All</button>
-                <button class="btn primary" onclick="previewSave()">SAVE TO RUST</button>
+                <button class="btn" onclick="saveLocal()" title="Save backup to your browser">💾 Save Local</button>
+                <button class="btn" onclick="loadLocal()" title="Load from browser backup">📂 Load Local</button>
+                <button class="btn" onclick="clearCanvas()" title="Clear entire canvas">🗑 Clear All</button>
+                <button class="btn primary" onclick="previewSave()" title="Preview and save to Rust server (High Quality - 3x resolution)" style="font-size:14px;padding:10px 20px;">💫 SAVE TO RUST</button>
             </div>
         </section>
         <aside class="right-panel">
@@ -474,6 +474,31 @@
             showCategory('basic');
             updateLayers();
             saveHistory();
+            
+            // Show welcome message on first visit
+            if (!localStorage.getItem('rustEmblem_visited')) {
+                localStorage.setItem('rustEmblem_visited', 'true');
+                setTimeout(function() {
+                    const welcome = document.createElement('div');
+                    welcome.style.cssText = 'position:fixed;top:80px;right:20px;background:#1a1a25;border:2px solid #ff4444;color:white;padding:20px;border-radius:8px;z-index:9999;max-width:350px;box-shadow:0 8px 24px rgba(0,0,0,0.5);';
+                    welcome.innerHTML = `
+                        <div style="font-size:18px;font-weight:700;margin-bottom:10px;color:#ff4444;">🎨 Welcome to Emblem Editor!</div>
+                        <div style="font-size:13px;line-height:1.6;color:#ccc;margin-bottom:15px;">
+                            <strong style="color:white;">Quick Tips:</strong><br>
+                            • Click shapes to add them<br>
+                            • Use toolbar to customize<br>
+                            • Layer panel on right<br>
+                            • Auto-saves every 30 seconds<br>
+                            • Ctrl+Z to undo<br>
+                            • "Save Local" for backups<br>
+                            • "SAVE TO RUST" when done
+                        </div>
+                        <button onclick="this.parentElement.remove()" style="background:#ff4444;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;width:100%;font-weight:600;">GOT IT!</button>
+                    `;
+                    document.body.appendChild(welcome);
+                    setTimeout(() => { if(welcome.parentElement) welcome.remove(); }, 15000);
+                }, 500);
+            }
         };
         const canvas = new fabric.Canvas('c', { preserveObjectStacking: true, backgroundColor: '#000000' });
         canvas.on('selection:created', function() { updateLayers(); syncProps(); });
@@ -509,9 +534,17 @@
             });
         }
         function addText() {
-            const txt = new fabric.IText('TEXT', {
+            const fonts = ['Arial Black', 'Impact', 'Times New Roman', 'Courier New', 'Georgia', 'Verdana', 'Comic Sans MS', 'Trebuchet MS', 'Arial', 'Helvetica', 'Tahoma', 'Palatino'];
+            const randomFont = fonts[Math.floor(Math.random() * fonts.length)];
+            const txt = new fabric.IText('YOUR TEXT', {
                 left: canvas.width/2, top: canvas.height/2, originX: 'center', originY: 'center',
-                fontSize: 40, fill: document.getElementById('fillColor').value, fontFamily: 'Arial Black', layerName: 'Text'
+                fontSize: 50, fill: document.getElementById('fillColor').value, 
+                fontFamily: randomFont, 
+                fontWeight: 'bold',
+                stroke: '#000000',
+                strokeWidth: 0,
+                shadow: 'rgba(0,0,0,0.5) 2px 2px 3px',
+                layerName: 'Text'
             });
             canvas.add(txt);
             canvas.setActiveObject(txt);
@@ -595,21 +628,96 @@
         function saveHistory() { if(historyLock) return; historyIdx++; if(historyIdx < history.length) history = history.slice(0, historyIdx); history.push(JSON.stringify(canvas.toJSON(['layerName']))); if(history.length > 50) { history.shift(); historyIdx--; } }
         function undo() { if(historyIdx <= 0) return; historyIdx--; historyLock = true; canvas.loadFromJSON(history[historyIdx], function() { canvas.renderAll(); updateLayers(); historyLock = false; }); }
         function redo() { if(historyIdx >= history.length-1) return; historyIdx++; historyLock = true; canvas.loadFromJSON(history[historyIdx], function() { canvas.renderAll(); updateLayers(); historyLock = false; }); }
-        function saveLocal() { localStorage.setItem('rustEmblem', JSON.stringify(canvas.toJSON(['layerName']))); alert('Saved to browser!'); }
-        function loadLocal() { const d = localStorage.getItem('rustEmblem'); if(!d) { alert('No saved data'); return; } canvas.loadFromJSON(d, function() { canvas.renderAll(); updateLayers(); }); }
-        function previewSave() { canvas.discardActiveObject(); canvas.requestRenderAll(); const url = canvas.toDataURL({ format: 'png', quality: 1, multiplier: 2 }); document.getElementById('previewImg').src = url; document.getElementById('previewModal').classList.add('active'); pendingData = url; }
+        // Auto-save every 30 seconds
+        setInterval(function() {
+            localStorage.setItem('rustEmblem_autosave', JSON.stringify(canvas.toJSON(['layerName'])));
+            localStorage.setItem('rustEmblem_autosave_time', Date.now());
+        }, 30000);
+        
+        // Check for autosave on load
+        window.addEventListener('load', function() {
+            const autosave = localStorage.getItem('rustEmblem_autosave');
+            const autosaveTime = localStorage.getItem('rustEmblem_autosave_time');
+            if (autosave && autosaveTime) {
+                const minutes = Math.floor((Date.now() - parseInt(autosaveTime)) / 60000);
+                if (minutes < 60 && confirm(`Found auto-saved work from ${minutes} minute(s) ago. Restore it?`)) {
+                    canvas.loadFromJSON(autosave, function() { 
+                        canvas.renderAll(); 
+                        updateLayers(); 
+                        saveHistory();
+                    });
+                }
+            }
+        });
+        
+        function saveLocal() { 
+            localStorage.setItem('rustEmblem', JSON.stringify(canvas.toJSON(['layerName']))); 
+            const statusEl = document.createElement('div');
+            statusEl.style.cssText = 'position:fixed;top:80px;right:20px;background:#4caf50;color:white;padding:12px 20px;border-radius:6px;z-index:9999;font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,0.3);';
+            statusEl.textContent = '✓ Saved to browser!';
+            document.body.appendChild(statusEl);
+            setTimeout(() => statusEl.remove(), 2000);
+        }
+        
+        function loadLocal() { 
+            const d = localStorage.getItem('rustEmblem'); 
+            if(!d) { 
+                alert('No saved data. Use "Save Local" first!'); 
+                return; 
+            } 
+            if (confirm('This will replace your current work. Continue?')) {
+                canvas.loadFromJSON(d, function() { 
+                    canvas.renderAll(); 
+                    updateLayers(); 
+                    saveHistory();
+                }); 
+            }
+        }
+        
+        function previewSave() { 
+            canvas.discardActiveObject(); 
+            canvas.requestRenderAll(); 
+            // Higher quality export (3x multiplier)
+            const url = canvas.toDataURL({ format: 'png', quality: 1, multiplier: 3 }); 
+            document.getElementById('previewImg').src = url; 
+            document.getElementById('previewModal').classList.add('active'); 
+            pendingData = url; 
+        }
+        
         function closePreview() { document.getElementById('previewModal').classList.remove('active'); pendingData = null; }
         function confirmSave() { closePreview(); saveToBridge(pendingData); }
         function saveToBridge(data) {
             let id = steamId;
             if(!id) id = prompt('Enter your Steam64 ID:');
             if(!id) return;
-            if(!data) { canvas.discardActiveObject(); canvas.requestRenderAll(); data = canvas.toDataURL({ format: 'png', quality: 1, multiplier: 1 }); }
+            if(!data) { canvas.discardActiveObject(); canvas.requestRenderAll(); data = canvas.toDataURL({ format: 'png', quality: 1, multiplier: 3 }); }
             document.getElementById('loadingOverlay').classList.add('active');
             fetch(BRIDGE_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ steamId: id, imageData: data }) })
             .then(r => r.json())
-            .then(d => { document.getElementById('loadingOverlay').classList.remove('active'); alert('Emblem saved! Use /myemblems in game.'); })
-            .catch(e => { document.getElementById('loadingOverlay').classList.remove('active'); alert('Error: ' + e.message); });
+            .then(d => { 
+                document.getElementById('loadingOverlay').classList.remove('active'); 
+                // Show success message with instructions
+                const successDiv = document.createElement('div');
+                successDiv.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;';
+                successDiv.innerHTML = `
+                    <div style="font-size:48px;color:#4caf50;">✓</div>
+                    <div style="font-size:24px;font-weight:700;color:white;">Emblem Saved Successfully!</div>
+                    <div style="font-size:16px;color:#aaa;text-align:center;max-width:500px;">
+                        Your emblem has been saved to the server.<br><br>
+                        <strong style="color:white;">In-Game Commands:</strong><br>
+                        • /myemblems - View all your saved emblems<br>
+                        • /equipemblem &lt;number&gt; - Equip an emblem<br>
+                        • /emblems - Open visual emblem gallery<br>
+                        • /updateemblem - Update your team emblem
+                    </div>
+                    <button onclick="this.parentElement.remove()" style="background:#ff4444;color:white;border:none;padding:12px 30px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;margin-top:20px;">CLOSE</button>
+                `;
+                document.body.appendChild(successDiv);
+            })
+            .catch(e => { 
+                document.getElementById('loadingOverlay').classList.remove('active'); 
+                alert('Error saving emblem: ' + e.message + '\n\nPlease check your connection and try again.'); 
+            });
         }
         document.addEventListener('keydown', function(e) {
             if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
