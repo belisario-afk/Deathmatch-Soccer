@@ -209,7 +209,7 @@ namespace Oxide.Plugins
             { "black", new TeamConfig { Name = "Project Zerg-Germain", Tag = "ROAMER", Color = "0.2 0.2 0.2", HexColor = "#333333" } }
         };
         
-        private Timer gameTimer, tickerTimer, hudTimer, debugTimer;
+        private Timer gameTimer, tickerTimer, hudTimer, debugTimer, rubberbandTimer;
         private Dictionary<ulong, bool> ballRangeState = new Dictionary<ulong, bool>();
         
         // TICKER
@@ -303,6 +303,7 @@ namespace Oxide.Plugins
         private Dictionary<ulong, int> playerCurrency = new Dictionary<ulong, int>();
         private Dictionary<string, CustomTeam> customTeams = new Dictionary<string, CustomTeam>();
         private Dictionary<ulong, string> playerTeamAssignments = new Dictionary<ulong, string>();
+        private Dictionary<ulong, Vector3> playerSpawnPositions = new Dictionary<ulong, Vector3>(); // For rubberband containment
         private HashSet<string> onlineCustomTeams = new HashSet<string>();
         
         // CUSTOM TEAM CLASS
@@ -785,7 +786,7 @@ namespace Oxide.Plugins
                 PrintToChat("MATCH STARTED! Battle Time!");
             }
             
-            gameActive = true; matchStarted = true; matchActive = true;
+            gameActive = true; matchStarted = false; matchActive = true; // matchStarted = false during countdown
             
             SpawnBall();
             RefreshScoreboardAll();
@@ -797,11 +798,21 @@ namespace Oxide.Plugins
             if (hudTimer != null) hudTimer.Destroy();
             hudTimer = timer.Repeat(0.5f, 0, HudLoop);
 
-            // Teleport teams to their positions
+            // Teleport teams to their positions (5 units in front of goals)
             TeleportTeamsToPositions();
-
-            PrintToChat("MATCH STARTED! 3 Teams Battle!");
-            CallMiddleware("EVENT: MATCH_START. Score 0-0-0. 3-Team Battle.");
+            
+            // Start rubberband containment system
+            if (rubberbandTimer != null) rubberbandTimer.Destroy();
+            rubberbandTimer = timer.Repeat(1f, 0, CheckPlayerContainment);
+            
+            // Start match after 5 second countdown
+            timer.Once(5f, () => {
+                matchStarted = true;
+                playerSpawnPositions.Clear(); // Clear containment
+                if (rubberbandTimer != null) rubberbandTimer.Destroy();
+                PrintToChat("MATCH STARTED! 3 Teams Battle!");
+                CallMiddleware("EVENT: MATCH_START. Score 0-0-0. 3-Team Battle.");
+            });
         }
         
         private void AssignTeamsToGoals()
@@ -1051,6 +1062,10 @@ namespace Oxide.Plugins
         
         private void TeleportTeamToPosition(string teamName, Vector3 position)
         {
+            // Determine goal rotation for spawn position
+            Quaternion goalRot = (position == goal1Pos) ? goal1Rot : goal2Rot;
+            Vector3 spawnPos = position + (goalRot * Vector3.forward * 5f); // 5 units in front of goal
+            
             if (teamName == "red")
             {
                 foreach (var playerID in redTeam)
@@ -1058,8 +1073,9 @@ namespace Oxide.Plugins
                     var player = BasePlayer.FindByID(playerID);
                     if (player != null && player.IsConnected)
                     {
-                        player.Teleport(position);
-                        player.ClientRPCPlayer(null, player, "ForcePositionTo", position);
+                        player.Teleport(spawnPos);
+                        player.ClientRPCPlayer(null, player, "ForcePositionTo", spawnPos);
+                        playerSpawnPositions[playerID] = spawnPos; // Store for rubberband
                     }
                 }
             }
@@ -1070,8 +1086,9 @@ namespace Oxide.Plugins
                     var player = BasePlayer.FindByID(playerID);
                     if (player != null && player.IsConnected)
                     {
-                        player.Teleport(position);
-                        player.ClientRPCPlayer(null, player, "ForcePositionTo", position);
+                        player.Teleport(spawnPos);
+                        player.ClientRPCPlayer(null, player, "ForcePositionTo", spawnPos);
+                        playerSpawnPositions[playerID] = spawnPos; // Store for rubberband
                     }
                 }
             }
@@ -1082,8 +1099,9 @@ namespace Oxide.Plugins
                     var player = BasePlayer.FindByID(playerID);
                     if (player != null && player.IsConnected)
                     {
-                        player.Teleport(position);
-                        player.ClientRPCPlayer(null, player, "ForcePositionTo", position);
+                        player.Teleport(spawnPos);
+                        player.ClientRPCPlayer(null, player, "ForcePositionTo", spawnPos);
+                        playerSpawnPositions[playerID] = spawnPos; // Store for rubberband
                     }
                 }
             }
@@ -1092,15 +1110,16 @@ namespace Oxide.Plugins
                 // Custom team
                 foreach (var kvp in customTeams)
                 {
-                    if (kvp.Value.TeamName == teamName)
+                    if (kvp.Value.TeamName == teamName || kvp.Key == teamName) // Check both name and ID
                     {
                         foreach (var memberID in kvp.Value.Members)
                         {
                             var player = BasePlayer.FindByID(memberID);
                             if (player != null && player.IsConnected)
                             {
-                                player.Teleport(position);
-                                player.ClientRPCPlayer(null, player, "ForcePositionTo", position);
+                                player.Teleport(spawnPos);
+                                player.ClientRPCPlayer(null, player, "ForcePositionTo", spawnPos);
+                                playerSpawnPositions[memberID] = spawnPos; // Store for rubberband
                             }
                         }
                         break;
@@ -3361,7 +3380,7 @@ namespace Oxide.Plugins
         {
             if (role == "Striker")
             {
-                GiveItemWithSkin(player, "bat", 1, 0, player.inventory.containerBelt);
+                GiveItemWithSkin(player, "mace.baseballbat", 1, 0, player.inventory.containerBelt);
                 GiveItemWithSkin(player, "pistol.python", 1, 0, player.inventory.containerBelt);
                 player.inventory.GiveItem(ItemManager.CreateByName("ammo.pistol", 128), player.inventory.containerMain);
             }
@@ -3374,7 +3393,7 @@ namespace Oxide.Plugins
             else if (role == "Enforcer")
             {
                 GiveItemWithSkin(player, "pistol.nailgun", 1, 0, player.inventory.containerBelt);
-                GiveItemWithSkin(player, "bat", 1, 0, player.inventory.containerBelt);
+                GiveItemWithSkin(player, "mace.baseballbat", 1, 0, player.inventory.containerBelt);
                 player.inventory.GiveItem(ItemManager.CreateByName("ammo.nailgun.nails", 128), player.inventory.containerMain);
             }
             else if (role == "Goalie")
@@ -3897,6 +3916,27 @@ namespace Oxide.Plugins
                             HitInfo h = new HitInfo(); h.damageTypes.Add(global::Rust.DamageType.Radiation, 5f);
                             player.Hurt(h);
                         }
+                    }
+                }
+            }
+        }
+        
+        // Player containment system - rubberbands players to spawn during countdown
+        private void CheckPlayerContainment()
+        {
+            if (matchStarted) return; // Only during countdown
+            
+            foreach (var player in BasePlayer.activePlayerList)
+            {
+                if (playerSpawnPositions.ContainsKey(player.userID))
+                {
+                    float distance = Vector3.Distance(player.transform.position, playerSpawnPositions[player.userID]);
+                    
+                    if (distance > 15f) // 15 unit leash
+                    {
+                        player.Teleport(playerSpawnPositions[player.userID]);
+                        player.ClientRPCPlayer(null, player, "ForcePositionTo", playerSpawnPositions[player.userID]);
+                        SendReply(player, "<color=#FF6B6B>Stay near your goal! Match starting soon...</color>");
                     }
                 }
             }
