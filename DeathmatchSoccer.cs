@@ -254,16 +254,16 @@ namespace Oxide.Plugins
         // Weapon voting options with item shortnames and display names
         private Dictionary<string, WeaponOption> weaponOptions = new Dictionary<string, WeaponOption>
         {
-            { "ak47", new WeaponOption { ShortName = "rifle.ak", DisplayName = "AK-47", ImageUrl = "https://i.imgur.com/placeholder_ak.png" } },
-            { "lr300", new WeaponOption { ShortName = "rifle.lr300", DisplayName = "LR-300", ImageUrl = "https://i.imgur.com/placeholder_lr300.png" } },
-            { "m249", new WeaponOption { ShortName = "lmg.m249", DisplayName = "M249", ImageUrl = "https://i.imgur.com/placeholder_m249.png" } },
-            { "thompson", new WeaponOption { ShortName = "smg.thompson", DisplayName = "Thompson", ImageUrl = "https://i.imgur.com/placeholder_thompson.png" } },
-            { "mp5", new WeaponOption { ShortName = "smg.mp5", DisplayName = "MP5", ImageUrl = "https://i.imgur.com/placeholder_mp5.png" } },
-            { "custom", new WeaponOption { ShortName = "smg.2", DisplayName = "Custom SMG", ImageUrl = "https://i.imgur.com/placeholder_custom.png" } },
-            { "pump", new WeaponOption { ShortName = "shotgun.pump", DisplayName = "Pump Shotgun", ImageUrl = "https://i.imgur.com/placeholder_pump.png" } },
-            { "double", new WeaponOption { ShortName = "shotgun.double", DisplayName = "Double Barrel", ImageUrl = "https://i.imgur.com/placeholder_double.png" } },
-            { "compound", new WeaponOption { ShortName = "bow.compound", DisplayName = "Compound Bow", ImageUrl = "https://i.imgur.com/placeholder_bow.png" } },
-            { "bolty", new WeaponOption { ShortName = "rifle.bolt", DisplayName = "Bolt Action", ImageUrl = "https://i.imgur.com/placeholder_bolt.png" } }
+            { "ak47", new WeaponOption { ShortName = "rifle.ak", DisplayName = "AK-47", ImageUrl = "https://static.wikia.nocookie.net/play-rust/images/6/6a/Assault_Rifle_icon.png" } },
+            { "lr300", new WeaponOption { ShortName = "rifle.lr300", DisplayName = "LR-300", ImageUrl = "https://static.wikia.nocookie.net/play-rust/images/3/3e/LR-300_Assault_Rifle_icon.png" } },
+            { "m249", new WeaponOption { ShortName = "lmg.m249", DisplayName = "M249", ImageUrl = "https://static.wikia.nocookie.net/play-rust/images/e/e3/M249_icon.png" } },
+            { "thompson", new WeaponOption { ShortName = "smg.thompson", DisplayName = "Thompson", ImageUrl = "https://static.wikia.nocookie.net/play-rust/images/4/42/Thompson_icon.png" } },
+            { "mp5", new WeaponOption { ShortName = "smg.mp5", DisplayName = "MP5", ImageUrl = "https://static.wikia.nocookie.net/play-rust/images/9/93/MP5A4_icon.png" } },
+            { "custom", new WeaponOption { ShortName = "smg.2", DisplayName = "Custom SMG", ImageUrl = "https://static.wikia.nocookie.net/play-rust/images/4/4c/Custom_SMG_icon.png" } },
+            { "pump", new WeaponOption { ShortName = "shotgun.pump", DisplayName = "Pump Shotgun", ImageUrl = "https://static.wikia.nocookie.net/play-rust/images/f/f9/Pump_Shotgun_icon.png" } },
+            { "double", new WeaponOption { ShortName = "shotgun.double", DisplayName = "Double Barrel", ImageUrl = "https://static.wikia.nocookie.net/play-rust/images/2/29/Double_Barrel_Shotgun_icon.png" } },
+            { "compound", new WeaponOption { ShortName = "bow.compound", DisplayName = "Compound Bow", ImageUrl = "https://static.wikia.nocookie.net/play-rust/images/d/d6/Compound_Bow_icon.png" } },
+            { "bolty", new WeaponOption { ShortName = "rifle.bolt", DisplayName = "Bolt Action", ImageUrl = "https://static.wikia.nocookie.net/play-rust/images/1/1c/Bolt_Action_Rifle_icon.png" } }
         };
         
         private class WeaponOption
@@ -5948,9 +5948,23 @@ namespace Oxide.Plugins
             }
             else
             {
-                CallMiddleware($"EVENT: GOAL. {team} Scores. MVP: {mvp}. Score: R{scoreRed}-B{scoreBlue}-Bl{scoreBlack}");
-                if (scoreRed >= ScoreToWin || scoreBlue >= ScoreToWin || scoreBlack >= ScoreToWin) EndMatch(team);
-                else timer.Once(5f, () => { SpawnBall(); gameActive = true; });
+                // Check both default team scores AND custom team scores for win condition
+                int goal1Score = GetTeamScore(goal1Team);
+                int goal2Score = GetTeamScore(goal2Team);
+                
+                CallMiddleware($"EVENT: GOAL. {team} Scores. MVP: {mvp}. Score: {GetTeamDisplayName(goal1Team)} {goal1Score} - {GetTeamDisplayName(goal2Team)} {goal2Score}");
+                
+                // Check if either team has reached the win condition
+                if (goal1Score >= ScoreToWin || goal2Score >= ScoreToWin)
+                {
+                    // Determine winner
+                    string winningTeam = (goal1Score >= ScoreToWin) ? goal1Team : goal2Team;
+                    EndMatch(winningTeam);
+                }
+                else
+                {
+                    timer.Once(5f, () => { SpawnBall(); gameActive = true; });
+                }
             }
         }
 
