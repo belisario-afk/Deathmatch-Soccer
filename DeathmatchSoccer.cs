@@ -2321,14 +2321,14 @@ namespace Oxide.Plugins
             // Find player's team
             if (!playerTeamAssignments.ContainsKey(player.userID))
             {
-                SendReply(player, "You don't own a team. Create one with /createteam");
+                SendReply(player, "<color=#ff6b6b>✗</color> You don't own a team. Create one with <color=#FFD700>/createteam</color>");
                 return;
             }
             
             string teamID = playerTeamAssignments[player.userID];
             if (!customTeams.ContainsKey(teamID))
             {
-                SendReply(player, "ERROR: Team data not found.");
+                SendReply(player, "<color=#ff6b6b>✗ ERROR:</color> Team data not found.");
                 return;
             }
             
@@ -2337,7 +2337,7 @@ namespace Oxide.Plugins
             // Fetch current emblem from EmblemEditor
             if (EmblemEditor == null)
             {
-                SendReply(player, "ERROR: EmblemEditor plugin not loaded!");
+                SendReply(player, "<color=#ff6b6b>✗ ERROR:</color> EmblemEditor plugin not loaded!");
                 SendReply(player, "Contact admin to install EmblemEditor.cs");
                 return;
             }
@@ -2347,8 +2347,8 @@ namespace Oxide.Plugins
                 string emblemUrl = (string)EmblemEditor.Call("GetEquippedEmblem", player.userID);
                 if (string.IsNullOrEmpty(emblemUrl))
                 {
-                    SendReply(player, "You don't have an emblem equipped!");
-                    SendReply(player, "Use /emblem to create one first.");
+                    SendReply(player, "<color=#ff6b6b>✗</color> You don't have an emblem equipped!");
+                    SendReply(player, "Use <color=#FFD700>/emblem</color> to create one, then <color=#FFD700>/equipemblem</color> to equip it.");
                     return;
                 }
                 
@@ -2364,13 +2364,21 @@ namespace Oxide.Plugins
                     Puts($"[UpdateEmblem] Registered emblem {emblemId} for team {team.TeamName}");
                 }
                 
-                SendReply(player, $"✓ Team emblem updated!");
-                SendReply(player, "Your emblem will show in the next match.");
+                SendReply(player, $"<color=#4caf50>✓ Team emblem updated!</color>");
+                SendReply(player, "Your emblem will show in the next match scoreboard.");
+                
+                // Refresh scoreboard if match is active
+                if (matchStarted)
+                {
+                    RefreshScoreboardAll();
+                    SendReply(player, "<color=#4caf50>✓ Scoreboard refreshed!</color>");
+                }
+                
                 Puts($"[CustomTeam] {player.displayName} updated emblem for team {team.TeamName}");
             }
             catch (Exception ex)
             {
-                SendReply(player, "ERROR: Failed to fetch emblem from EmblemEditor");
+                SendReply(player, "<color=#ff6b6b>✗ ERROR:</color> Failed to fetch emblem from EmblemEditor");
                 Puts($"[UpdateEmblem] Error: {ex.Message}");
             }
         }
@@ -6698,5 +6706,62 @@ namespace Oxide.Plugins
         public class Choice { public Message message { get; set; } }
         public class Message { public string content { get; set; } }
         public class AnnouncerResponse { public string message_to_player { get; set; } }
+        
+        #region API Methods (for EmblemEditor plugin)
+        
+        // Called by EmblemEditor when a player equips a new emblem
+        // Updates the team emblem if player owns a custom team
+        // Returns true if team emblem was updated
+        private bool UpdatePlayerTeamEmblem(ulong playerID, string emblemUrl)
+        {
+            try
+            {
+                // Find custom team owned by this player
+                foreach (var kvp in customTeams)
+                {
+                    if (kvp.Value.OwnerID == playerID)
+                    {
+                        string teamID = kvp.Key;
+                        var team = kvp.Value;
+                        
+                        // Update team emblem URL
+                        team.EmblemUrl = emblemUrl;
+                        SaveCustomTeams();
+                        
+                        // Re-register with ImageLibrary
+                        if (ImageLibrary != null && !string.IsNullOrEmpty(emblemUrl))
+                        {
+                            string emblemId = $"Team_Emblem_{team.TeamName}";
+                            ImageLibrary.Call("AddImage", emblemUrl, emblemId);
+                            Puts($"[UpdatePlayerTeamEmblem] Updated emblem for team '{team.TeamName}' (ID: {teamID})");
+                        }
+                        
+                        return true;
+                    }
+                }
+                
+                return false; // Player doesn't own a team
+            }
+            catch (Exception ex)
+            {
+                PrintError($"[UpdatePlayerTeamEmblem] Error: {ex.Message}");
+                return false;
+            }
+        }
+        
+        // Refresh scoreboard for all players (called by EmblemEditor after emblem change)
+        private void RefreshScoreboardAll()
+        {
+            if (matchStarted)
+            {
+                foreach (var player in BasePlayer.activePlayerList)
+                {
+                    UpdateScoreUI(player);
+                }
+                Puts("[RefreshScoreboardAll] Scoreboard refreshed for all players");
+            }
+        }
+        
+        #endregion
     }
 }

@@ -12,6 +12,8 @@ namespace Oxide.Plugins
     [Description("Standalone emblem editor plugin with web-based editor and in-game display")]
     public class EmblemEditor : RustPlugin
     {
+        [PluginReference] private Plugin DeathmatchSoccer, ImageLibrary;
+        
         #region Configuration
         
         private Configuration config;
@@ -142,7 +144,9 @@ namespace Oxide.Plugins
                 }
                 else
                 {
-                    player.ChatMessage("<color=#ce422b>[Emblem]</color> <color=#4caf50>Emblem editor link given as a note!</color> Check your inventory.");
+                    player.ChatMessage("<color=#ce422b>[Emblem]</color> <color=#4caf50>✓ Emblem editor link given as a note!</color>");
+                    player.ChatMessage("<color=#ce422b>[Emblem]</color> Check your inventory and open the note to see the editor URL.");
+                    player.ChatMessage("<color=#ce422b>[Emblem]</color> After saving, use <color=#FFD700>/myemblems</color> to view your collection!");
                 }
             }
             else
@@ -156,19 +160,28 @@ namespace Oxide.Plugins
         private void CmdMyEmblems(BasePlayer player, string cmd, string[] args)
         {
             var data = GetPlayerData(player.userID);
-            player.ChatMessage($"<color=#ce422b>[Emblem]</color> <color=#FFD700>Your Emblems:</color> {data.SavedEmblems.Count} saved");
+            
+            if (data.SavedEmblems.Count == 0)
+            {
+                player.ChatMessage($"<color=#ce422b>[Emblem]</color> You don't have any saved emblems yet.");
+                player.ChatMessage($"<color=#ce422b>[Emblem]</color> Use <color=#FFD700>/emblem</color> to create your first emblem!");
+                return;
+            }
+            
+            player.ChatMessage($"<color=#ce422b>[Emblem]</color> <color=#FFD700>━━━ Your Emblems ({data.SavedEmblems.Count} total) ━━━</color>");
             
             int i = 0;
             foreach (var emblem in data.SavedEmblems)
             {
                 i++;
                 string shortUrl = emblem.Length > 50 ? emblem.Substring(0, 50) + "..." : emblem;
-                string equipped = (data.EquippedEmblem == emblem) ? " <color=#4caf50>[EQUIPPED]</color>" : "";
-                player.ChatMessage($"  #{i}: {shortUrl}{equipped}");
+                string equipped = (data.EquippedEmblem == emblem) ? " <color=#4caf50>✓ EQUIPPED</color>" : "";
+                player.ChatMessage($"  <color=#FFD700>#{i}</color>: {shortUrl}{equipped}");
             }
             
-            if (data.SavedEmblems.Count == 0)
-                player.ChatMessage("  No emblems saved yet. Use /emblem to create one!");
+            player.ChatMessage($"<color=#ce422b>[Emblem]</color> ─────────────────────────────────");
+            player.ChatMessage($"<color=#ce422b>[Emblem]</color> Use <color=#FFD700>/equipemblem <number></color> to equip");
+            player.ChatMessage($"<color=#ce422b>[Emblem]</color> Use <color=#FFD700>/emblems</color> to open visual gallery");
         }
         
         [ChatCommand("equipemblem")]
@@ -195,9 +208,34 @@ namespace Oxide.Plugins
                 return;
             }
             
+            string oldEmblem = data.EquippedEmblem;
             data.EquippedEmblem = data.SavedEmblems[index];
             SaveData();
-            player.ChatMessage($"<color=#ce422b>[Emblem]</color> <color=#4caf50>Emblem #{index + 1} equipped!</color>");
+            
+            // Success message
+            player.ChatMessage($"<color=#ce422b>[Emblem]</color> <color=#4caf50>✓ Emblem #{index + 1} equipped!</color>");
+            
+            // Register with ImageLibrary
+            if (ImageLibrary != null && !string.IsNullOrEmpty(data.EquippedEmblem))
+            {
+                string emblemId = $"Player_Emblem_{player.userID}";
+                ImageLibrary.Call("AddImage", data.EquippedEmblem, emblemId);
+                Puts($"[EmblemEditor] Registered emblem for player {player.displayName} ({player.userID})");
+            }
+            
+            // Notify DeathmatchSoccer to update team emblem if player owns a team
+            if (DeathmatchSoccer != null)
+            {
+                bool teamUpdated = (bool)(DeathmatchSoccer.Call("UpdatePlayerTeamEmblem", player.userID, data.EquippedEmblem) ?? false);
+                if (teamUpdated)
+                {
+                    player.ChatMessage($"<color=#ce422b>[Emblem]</color> <color=#4caf50>✓ Your team emblem has been updated!</color>");
+                    Puts($"[EmblemEditor] Team emblem updated for player {player.displayName}");
+                }
+                
+                // Refresh scoreboard for all players if match is active
+                DeathmatchSoccer.Call("RefreshScoreboardAll");
+            }
         }
         
         [ChatCommand("emblems")]
@@ -256,8 +294,12 @@ namespace Oxide.Plugins
             }
             
             // Auto-equip if first emblem
+            bool autoEquipped = false;
             if (string.IsNullOrEmpty(data.EquippedEmblem))
+            {
                 data.EquippedEmblem = uniqueUrl;
+                autoEquipped = true;
+            }
             
             SaveData();
             
@@ -265,7 +307,34 @@ namespace Oxide.Plugins
             var player = BasePlayer.FindByID(steamId);
             if (player != null)
             {
-                player.ChatMessage("<color=#ce422b>[Emblem]</color> <color=#4caf50>New emblem saved!</color> Use /myemblems to see your collection.");
+                if (autoEquipped)
+                {
+                    player.ChatMessage("<color=#ce422b>[Emblem]</color> <color=#4caf50>✓ New emblem saved and equipped!</color>");
+                }
+                else
+                {
+                    player.ChatMessage("<color=#ce422b>[Emblem]</color> <color=#4caf50>✓ New emblem saved!</color> Use /myemblems to view or /equipemblem to switch.");
+                }
+                
+                // Register with ImageLibrary
+                if (ImageLibrary != null && !string.IsNullOrEmpty(data.EquippedEmblem))
+                {
+                    string emblemId = $"Player_Emblem_{steamId}";
+                    ImageLibrary.Call("AddImage", data.EquippedEmblem, emblemId);
+                }
+                
+                // Notify DeathmatchSoccer if player owns a team
+                if (DeathmatchSoccer != null && autoEquipped)
+                {
+                    bool teamUpdated = (bool)(DeathmatchSoccer.Call("UpdatePlayerTeamEmblem", steamId, data.EquippedEmblem) ?? false);
+                    if (teamUpdated)
+                    {
+                        player.ChatMessage($"<color=#ce422b>[Emblem]</color> <color=#4caf50>✓ Your team emblem has been updated!</color>");
+                    }
+                    
+                    // Refresh scoreboard for all players if match is active
+                    DeathmatchSoccer.Call("RefreshScoreboardAll");
+                }
             }
             
             Puts($"[EmblemEditor] Emblem updated for {steamId}");
@@ -300,7 +369,28 @@ namespace Oxide.Plugins
             data.EquippedEmblem = data.SavedEmblems[index];
             SaveData();
             
-            player.ChatMessage("<color=#ce422b>[Emblem]</color> <color=#4caf50>Emblem equipped!</color>");
+            player.ChatMessage("<color=#ce422b>[Emblem]</color> <color=#4caf50>✓ Emblem equipped!</color>");
+            
+            // Register with ImageLibrary
+            if (ImageLibrary != null && !string.IsNullOrEmpty(data.EquippedEmblem))
+            {
+                string emblemId = $"Player_Emblem_{player.userID}";
+                ImageLibrary.Call("AddImage", data.EquippedEmblem, emblemId);
+            }
+            
+            // Notify DeathmatchSoccer to update team emblem and scoreboard
+            if (DeathmatchSoccer != null)
+            {
+                bool teamUpdated = (bool)(DeathmatchSoccer.Call("UpdatePlayerTeamEmblem", player.userID, data.EquippedEmblem) ?? false);
+                if (teamUpdated)
+                {
+                    player.ChatMessage($"<color=#ce422b>[Emblem]</color> <color=#4caf50>✓ Your team emblem has been updated!</color>");
+                }
+                
+                // Refresh scoreboard for all players
+                DeathmatchSoccer.Call("RefreshScoreboardAll");
+            }
+            
             ShowEmblemGalleryUI(player); // Refresh UI
         }
         
