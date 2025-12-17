@@ -2348,7 +2348,10 @@ namespace Oxide.Plugins
                 if (string.IsNullOrEmpty(emblemUrl))
                 {
                     SendReply(player, "<color=#ff6b6b>✗</color> You don't have an emblem equipped!");
-                    SendReply(player, "Use <color=#FFD700>/emblem</color> to create one, then <color=#FFD700>/equipemblem</color> to equip it.");
+                    SendReply(player, "Use <color=#FFD700>/emblem</color> to create an emblem (opens web editor)");
+                    SendReply(player, "Use <color=#FFD700>/myemblems</color> to view your saved emblems");
+                    SendReply(player, "Use <color=#FFD700>/equipemblem <#></color> to equip a saved emblem");
+                    SendReply(player, "Use <color=#FFD700>/emblems</color> to open the visual gallery");
                     return;
                 }
                 
@@ -2365,13 +2368,17 @@ namespace Oxide.Plugins
                 }
                 
                 SendReply(player, $"<color=#4caf50>✓ Team emblem updated!</color>");
-                SendReply(player, "Your emblem will show in the next match scoreboard.");
+                SendReply(player, "Your emblem will show in the match scoreboard.");
                 
-                // Refresh scoreboard if match is active
-                if (matchStarted)
+                // Refresh scoreboard if match is active or in lobby
+                if (matchStarted || matchActive)
                 {
                     RefreshScoreboardAll();
-                    SendReply(player, "<color=#4caf50>✓ Scoreboard refreshed!</color>");
+                    SendReply(player, "<color=#4caf50>✓ Scoreboard refreshed for all players!</color>");
+                }
+                else
+                {
+                    SendReply(player, "Scoreboard will refresh when the next match starts.");
                 }
                 
                 Puts($"[CustomTeam] {player.displayName} updated emblem for team {team.TeamName}");
@@ -6710,7 +6717,7 @@ namespace Oxide.Plugins
         // Called by EmblemEditor when a player equips a new emblem
         // Updates the team emblem if player owns a custom team
         // Returns true if team emblem was updated
-        private bool UpdatePlayerTeamEmblem(ulong playerID, string emblemUrl)
+        public bool UpdatePlayerTeamEmblem(ulong playerID, string emblemUrl)
         {
             try
             {
@@ -6748,9 +6755,9 @@ namespace Oxide.Plugins
         }
         
         // Refresh scoreboard for all players (called by EmblemEditor after emblem change)
-        private void RefreshScoreboardAll()
+        public void RefreshScoreboardAll()
         {
-            if (matchStarted)
+            if (matchStarted || matchActive) // Allow refresh during lobby OR match
             {
                 foreach (var player in BasePlayer.activePlayerList)
                 {
