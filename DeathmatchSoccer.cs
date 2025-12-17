@@ -39,7 +39,7 @@ namespace Oxide.Plugins
      * /set_lobby_spawn - Set lobby spawn point where players teleport during lobby
      * /save_goals, /load_goals - Persist arena data
      * /start_match - Begin the match
-     * /rotation - Toggle rotation mode ON/OFF
+     * /rotation - Toggle team rotation mode (teams switch after each match ends)
      * /setskin <team> <item> <skinId> - Configure team skins
      * /showskins - Display all skin configurations
      * /goal_debug - Toggle goal zone visualization (shows active/inactive goals)
@@ -1534,7 +1534,7 @@ namespace Oxide.Plugins
         {
             if (!player.IsAdmin) return;
             rotationMode = !rotationMode;
-            SendReply(player, $"Rotation Mode: {(rotationMode ? "ON (2 play, 1 waits)" : "OFF (3-way battle)")}");
+            SendReply(player, $"Rotation Mode: {(rotationMode ? "ON - Teams rotate after each match (2 play, 1 waits)" : "OFF - Same teams play continuously")}");
         }
         
         [ChatCommand("goal_debug")]
@@ -1753,7 +1753,7 @@ namespace Oxide.Plugins
                 SendReply(player, "\n--- ADMIN COMMANDS - Match Control ---");
                 SendReply(player, "/start_match - Start the match");
                 SendReply(player, "/reset_ball - Reset ball to center");
-                SendReply(player, "/rotation - Toggle rotation mode ON/OFF");
+                SendReply(player, "/rotation - Toggle team rotation (teams switch after each match)");
                 
                 SendReply(player, "\n--- ADMIN COMMANDS - Data ---");
                 SendReply(player, "/save_goals - Save arena configuration");
