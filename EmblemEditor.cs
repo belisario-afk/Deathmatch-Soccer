@@ -632,6 +632,15 @@ namespace Oxide.Plugins
         private string GetEquippedEmblem(ulong steamId)
         {
             var data = GetPlayerData(steamId);
+            
+            // Auto-equip first emblem if none explicitly equipped but has saved emblems
+            if (string.IsNullOrEmpty(data.EquippedEmblem) && data.SavedEmblems.Count > 0)
+            {
+                data.EquippedEmblem = data.SavedEmblems[0];
+                SaveData();
+                Puts($"[GetEquippedEmblem] Auto-equipped first emblem for {steamId}");
+            }
+            
             return data.EquippedEmblem;
         }
         

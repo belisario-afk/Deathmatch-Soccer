@@ -6059,9 +6059,9 @@ namespace Oxide.Plugins
             if (teamLower == "blue") return teamConfigs["blue"].Tag;
             if (teamLower == "black") return teamConfigs["black"].Tag;
             
-            // Handle custom teams
-            if (customTeams.ContainsKey(teamLower))
-                return customTeams[teamLower].TeamName;
+            // Handle custom teams - use original case-sensitive ID
+            if (customTeams.ContainsKey(teamIdentifier))
+                return customTeams[teamIdentifier].TeamName;
             
             // Fallback to identifier
             return teamIdentifier;
@@ -6733,12 +6733,18 @@ namespace Oxide.Plugins
                         team.EmblemUrl = emblemUrl;
                         SaveCustomTeams();
                         
-                        // Re-register with ImageLibrary
+                        // Re-register with ImageLibrary (use teamID for consistency)
                         if (ImageLibrary != null && !string.IsNullOrEmpty(emblemUrl))
                         {
-                            string emblemId = $"Team_Emblem_{team.TeamName}";
+                            string emblemId = $"Team_Emblem_{teamID}";
+                            
+                            // Clear cache first (force image refresh)
+                            ImageLibrary?.Call("RemoveImage", emblemId);
+                            
+                            // Re-add with new URL
                             ImageLibrary.Call("AddImage", emblemUrl, emblemId);
-                            Puts($"[UpdatePlayerTeamEmblem] Updated emblem for team '{team.TeamName}' (ID: {teamID})");
+                            Puts($"[UpdatePlayerTeamEmblem] Updated emblem for '{team.TeamName}' (ID: {teamID})");
+                            Puts($"[UpdatePlayerTeamEmblem] Emblem ID: {emblemId}, cleared cache and re-registered");
                         }
                         
                         return true;
