@@ -215,12 +215,13 @@ namespace Oxide.Plugins
             // Success message
             player.ChatMessage($"<color=#ce422b>[Emblem]</color> <color=#4caf50>✓ Emblem #{index + 1} equipped!</color>");
             
-            // Register with ImageLibrary
+            // Register with ImageLibrary (with timestamp for cache-busting)
             if (ImageLibrary != null && !string.IsNullOrEmpty(data.EquippedEmblem))
             {
-                string emblemId = $"Player_Emblem_{player.userID}";
+                string timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+                string emblemId = $"Player_Emblem_{player.userID}_{timestamp}";
                 ImageLibrary.Call("AddImage", data.EquippedEmblem, emblemId);
-                Puts($"[EmblemEditor] Registered emblem for player {player.displayName} ({player.userID})");
+                Puts($"[EmblemEditor] Registered emblem for player {player.displayName} ({player.userID}) with timestamp {timestamp}");
             }
             
             // Notify DeathmatchSoccer to update team emblem if player owns a team

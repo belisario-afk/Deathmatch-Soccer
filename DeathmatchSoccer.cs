@@ -327,6 +327,7 @@ namespace Oxide.Plugins
             
             // Team Emblem
             public string EmblemUrl { get; set; }
+            public string EmblemTimestamp { get; set; }  // Timestamp for cache-busting
             
             public DateTime CreatedAt { get; set; }
         }
@@ -3886,10 +3887,14 @@ namespace Oxide.Plugins
             {
                 var team = customTeams[teamName];
                 
-                // If team has stored emblem URL, use it
+                // If team has stored emblem URL, use it with timestamp for cache-busting
                 if (!string.IsNullOrEmpty(team.EmblemUrl))
                 {
-                    string emblemId = $"Team_Emblem_{teamName}";
+                    // Use timestamp if available (cache-busting)
+                    string emblemId = !string.IsNullOrEmpty(team.EmblemTimestamp) 
+                        ? $"Team_Emblem_{teamName}_{team.EmblemTimestamp}"
+                        : $"Team_Emblem_{teamName}";  // Fallback for old data
+                    
                     Puts($"[GetTeamEmblemId] Custom team ID '{teamName}' → Emblem ID: {emblemId}");
                     return emblemId;
                 }
@@ -3902,12 +3907,16 @@ namespace Oxide.Plugins
                         string emblemUrl = (string)EmblemEditor.Call("GetEquippedEmblem", team.OwnerID);
                         if (!string.IsNullOrEmpty(emblemUrl))
                         {
-                            // Register emblem on-the-fly
-                            string emblemId = $"Team_Emblem_{teamName}";
+                            // Generate timestamp for unique emblem ID
+                            string timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+                            string emblemId = $"Team_Emblem_{teamName}_{timestamp}";
+                            
+                            // Register emblem on-the-fly with timestamp
                             ImageLibrary.Call("AddImage", emblemUrl, emblemId);
                             
-                            // Update team data for next time
+                            // Update team data for next time (with timestamp)
                             team.EmblemUrl = emblemUrl;
+                            team.EmblemTimestamp = timestamp;
                             SaveCustomTeams();
                             
                             Puts($"[GetTeamEmblemId] Dynamically fetched emblem for '{teamName}' → {emblemId}");
@@ -6853,18 +6862,22 @@ namespace Oxide.Plugins
                         team.EmblemUrl = emblemUrl;
                         SaveCustomTeams();
                         
-                        // Re-register with ImageLibrary (use teamID for consistency)
+                        // Re-register with ImageLibrary (use teamID with timestamp for cache-busting)
                         if (ImageLibrary != null && !string.IsNullOrEmpty(emblemUrl))
                         {
-                            string emblemId = $"Team_Emblem_{teamID}";
+                            // Generate timestamp for unique emblem ID (cache-busting)
+                            string timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+                            string emblemId = $"Team_Emblem_{teamID}_{timestamp}";
                             
-                            // Clear cache first (force image refresh)
-                            ImageLibrary?.Call("RemoveImage", emblemId);
-                            
-                            // Re-add with new URL
+                            // Register with new timestamped ID (forces fresh image load)
                             ImageLibrary.Call("AddImage", emblemUrl, emblemId);
+                            
+                            // Store timestamp in team data so GetTeamEmblemId can use it
+                            team.EmblemTimestamp = timestamp;
+                            SaveCustomTeams();  // Save timestamp to file
+                            
                             Puts($"[UpdatePlayerTeamEmblem] Updated emblem for '{team.TeamName}' (ID: {teamID})");
-                            Puts($"[UpdatePlayerTeamEmblem] Emblem ID: {emblemId}, cleared cache and re-registered");
+                            Puts($"[UpdatePlayerTeamEmblem] Emblem ID: {emblemId} (timestamp: {timestamp})");
                         }
                         
                         return true;
