@@ -5951,9 +5951,12 @@ namespace Oxide.Plugins
             string teamName = GetTeamDisplayName(team);
             tickerMessages.Add($"GOAL: {teamName} ({mvp})");
             
+            // Convert team ID to display name for announcements
+            string teamDisplayName = GetTeamDisplayName(team);
+            
             if (rotationMode)
             {
-                CallMiddleware($"EVENT: GOAL. {team} Scores. MVP: {mvp}. Match #{matchNumber}");
+                CallMiddleware($"EVENT: GOAL. {teamDisplayName} Scores. MVP: {mvp}. Match #{matchNumber}");
                 int score1 = GetTeamScore(team1Playing);
                 int score2 = GetTeamScore(team2Playing);
                 if (score1 >= ScoreToWin || score2 >= ScoreToWin) EndMatch(team);
@@ -5965,7 +5968,7 @@ namespace Oxide.Plugins
                 int goal1Score = GetTeamScore(goal1Team);
                 int goal2Score = GetTeamScore(goal2Team);
                 
-                CallMiddleware($"EVENT: GOAL. {team} Scores. MVP: {mvp}. Score: {GetTeamDisplayName(goal1Team)} {goal1Score} - {GetTeamDisplayName(goal2Team)} {goal2Score}");
+                CallMiddleware($"EVENT: GOAL. {teamDisplayName} Scores. MVP: {mvp}. Score: {GetTeamDisplayName(goal1Team)} {goal1Score} - {GetTeamDisplayName(goal2Team)} {goal2Score}");
                 
                 // Check if either team has reached the win condition
                 if (goal1Score >= ScoreToWin || goal2Score >= ScoreToWin)
