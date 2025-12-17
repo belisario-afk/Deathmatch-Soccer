@@ -3706,8 +3706,6 @@ namespace Oxide.Plugins
         // 7. UI DRAWING
         // ==========================================
         private string GetImg(string name) { return (ImageLibrary != null) ? (string)ImageLibrary.Call("GetImage", name) : ""; }
-
-        private void RefreshScoreboardAll() { foreach (var player in BasePlayer.activePlayerList) UpdateScoreUI(player); }
         
         // Helper method to get team emblem URL for scoreboard backgrounds
         private string GetTeamEmblemUrl(string teamName)
