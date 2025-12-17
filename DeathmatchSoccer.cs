@@ -1738,6 +1738,21 @@ namespace Oxide.Plugins
             SendReply(player, "/teams - Show team selection UI");
             SendReply(player, "/help or /commands - Show this help menu");
             
+            SendReply(player, "\n--- CUSTOM TEAM COMMANDS ---");
+            SendReply(player, "/createteam - Create your own custom team");
+            SendReply(player, "/myteam - View your team info");
+            SendReply(player, "/listteams - List all custom teams");
+            SendReply(player, "/updateemblem - Update team emblem");
+            
+            SendReply(player, "\n--- CUSTOM TEAM KIT (Owner Only) ---");
+            SendReply(player, "/st <skinID> - Set Tshirt");
+            SendReply(player, "/sp <skinID> - Set Pants");
+            SendReply(player, "/ss <skinID> - Set Shoes");
+            SendReply(player, "/sc <skinID> - Set Chest armor");
+            SendReply(player, "/sh <skinID> - Set Hood/facemask");
+            SendReply(player, "/sgj <skinID> - Set Goalie Jacket");
+            SendReply(player, "/sgp <skinID> - Set Goalie Pants");
+            
             if (player.IsAdmin)
             {
                 SendReply(player, "\n--- ADMIN COMMANDS - Setup ---");
@@ -2397,6 +2412,108 @@ namespace Oxide.Plugins
         // - /equipemblem <number> - Equips emblem by number
         // - /emblems - Opens full UI gallery with visual previews
         // DeathmatchSoccer will automatically fetch team emblems from EmblemEditor via /updateemblem
+        
+        // Shorthand kit commands for custom teams (fast and easy)
+        [ChatCommand("st")]
+        private void CmdSetTshirt(BasePlayer player, string command, string[] args)
+        {
+            SetCustomTeamSkin(player, "tshirt", args, "Tshirt");
+        }
+        
+        [ChatCommand("sp")]
+        private void CmdSetPants(BasePlayer player, string command, string[] args)
+        {
+            SetCustomTeamSkin(player, "pants", args, "Pants");
+        }
+        
+        [ChatCommand("ss")]
+        private void CmdSetShoes(BasePlayer player, string command, string[] args)
+        {
+            SetCustomTeamSkin(player, "shoes", args, "Shoes");
+        }
+        
+        [ChatCommand("sc")]
+        private void CmdSetChest(BasePlayer player, string command, string[] args)
+        {
+            SetCustomTeamSkin(player, "torso", args, "Chest armor");
+        }
+        
+        [ChatCommand("sh")]
+        private void CmdSetHood(BasePlayer player, string command, string[] args)
+        {
+            SetCustomTeamSkin(player, "facemask", args, "Hood/facemask");
+        }
+        
+        [ChatCommand("sgj")]
+        private void CmdSetGoalieJacket(BasePlayer player, string command, string[] args)
+        {
+            SetCustomTeamSkin(player, "goalie_jacket", args, "Goalie Jacket");
+        }
+        
+        [ChatCommand("sgp")]
+        private void CmdSetGoaliePants(BasePlayer player, string command, string[] args)
+        {
+            SetCustomTeamSkin(player, "goalie_pants", args, "Goalie Pants");
+        }
+        
+        // Helper method for shorthand kit commands
+        private void SetCustomTeamSkin(BasePlayer player, string item, string[] args, string displayName)
+        {
+            // Check if player owns a custom team
+            if (!playerTeamAssignments.ContainsKey(player.userID))
+            {
+                SendReply(player, "<color=#ff6b6b>✗</color> You don't own a custom team. Use <color=#FFD700>/createteam</color> first.");
+                return;
+            }
+            
+            string teamID = playerTeamAssignments[player.userID];
+            if (!customTeams.ContainsKey(teamID))
+            {
+                SendReply(player, "<color=#ff6b6b>✗</color> Custom team not found.");
+                return;
+            }
+            
+            var team = customTeams[teamID];
+            
+            // Check ownership
+            if (team.OwnerID != player.userID)
+            {
+                SendReply(player, "<color=#ff6b6b>✗</color> Only the team owner can customize the kit.");
+                return;
+            }
+            
+            // Check arguments
+            if (args.Length < 1)
+            {
+                SendReply(player, $"<color=#ff6b6b>✗</color> Usage: Set {displayName} skin");
+                SendReply(player, $"Provide skin ID as number. Example: 3619180626");
+                return;
+            }
+            
+            // Parse skin ID
+            if (!ulong.TryParse(args[0], out ulong skinID))
+            {
+                SendReply(player, "<color=#ff6b6b>✗</color> Invalid skin ID. Must be a number.");
+                SendReply(player, "Example: 3619180626");
+                return;
+            }
+            
+            // Update skin
+            switch (item)
+            {
+                case "tshirt": team.TshirtSkin = skinID; break;
+                case "pants": team.PantsSkin = skinID; break;
+                case "shoes": team.ShoesSkin = skinID; break;
+                case "torso": team.TorsoSkin = skinID; break;
+                case "facemask": team.FacemaskSkin = skinID; break;
+                case "goalie_jacket": team.GoalieJacketSkin = skinID; break;
+                case "goalie_pants": team.GoaliePantsSkin = skinID; break;
+            }
+            
+            SaveCustomTeams();
+            SendReply(player, $"<color=#4caf50>✓</color> {displayName} skin set to <color=#FFD700>{skinID}</color>");
+            Puts($"[CustomTeam] {player.displayName} set {displayName} skin for {team.TeamName} to {skinID}");
+        }
         
         [ChatCommand("deleteteam")]
         private void CmdDeleteTeam(BasePlayer player, string command, string[] args)
@@ -5873,7 +5990,7 @@ namespace Oxide.Plugins
                 // CORRECT: Team that does NOT defend this goal gets the point
                 if (!string.IsNullOrEmpty(goal2Team))
                 {
-                    scoringTeam = goal2Team.ToUpper();
+                    scoringTeam = goal2Team;  // Keep original case for proper team lookup
                 }
             }
             // Check goal 2
@@ -5884,7 +6001,7 @@ namespace Oxide.Plugins
                 // CORRECT: Team that does NOT defend this goal gets the point
                 if (!string.IsNullOrEmpty(goal1Team))
                 {
-                    scoringTeam = goal1Team.ToUpper();
+                    scoringTeam = goal1Team;  // Keep original case for proper team lookup
                 }
             }
             
