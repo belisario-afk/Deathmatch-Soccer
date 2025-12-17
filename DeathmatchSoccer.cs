@@ -254,16 +254,16 @@ namespace Oxide.Plugins
         // Weapon voting options with item shortnames and display names
         private Dictionary<string, WeaponOption> weaponOptions = new Dictionary<string, WeaponOption>
         {
-            { "ak47", new WeaponOption { ShortName = "rifle.ak", DisplayName = "AK-47", ImageUrl = "https://static.wikia.nocookie.net/play-rust/images/6/6a/Assault_Rifle_icon.png" } },
-            { "lr300", new WeaponOption { ShortName = "rifle.lr300", DisplayName = "LR-300", ImageUrl = "https://static.wikia.nocookie.net/play-rust/images/3/3e/LR-300_Assault_Rifle_icon.png" } },
-            { "m249", new WeaponOption { ShortName = "lmg.m249", DisplayName = "M249", ImageUrl = "https://static.wikia.nocookie.net/play-rust/images/e/e3/M249_icon.png" } },
-            { "thompson", new WeaponOption { ShortName = "smg.thompson", DisplayName = "Thompson", ImageUrl = "https://static.wikia.nocookie.net/play-rust/images/4/42/Thompson_icon.png" } },
-            { "mp5", new WeaponOption { ShortName = "smg.mp5", DisplayName = "MP5", ImageUrl = "https://static.wikia.nocookie.net/play-rust/images/9/93/MP5A4_icon.png" } },
-            { "custom", new WeaponOption { ShortName = "smg.2", DisplayName = "Custom SMG", ImageUrl = "https://static.wikia.nocookie.net/play-rust/images/4/4c/Custom_SMG_icon.png" } },
-            { "pump", new WeaponOption { ShortName = "shotgun.pump", DisplayName = "Pump Shotgun", ImageUrl = "https://static.wikia.nocookie.net/play-rust/images/f/f9/Pump_Shotgun_icon.png" } },
-            { "double", new WeaponOption { ShortName = "shotgun.double", DisplayName = "Double Barrel", ImageUrl = "https://static.wikia.nocookie.net/play-rust/images/2/29/Double_Barrel_Shotgun_icon.png" } },
-            { "compound", new WeaponOption { ShortName = "bow.compound", DisplayName = "Compound Bow", ImageUrl = "https://static.wikia.nocookie.net/play-rust/images/d/d6/Compound_Bow_icon.png" } },
-            { "bolty", new WeaponOption { ShortName = "rifle.bolt", DisplayName = "Bolt Action", ImageUrl = "https://static.wikia.nocookie.net/play-rust/images/1/1c/Bolt_Action_Rifle_icon.png" } }
+            { "ak47", new WeaponOption { ShortName = "rifle.ak", DisplayName = "AK-47", ImageUrl = "https://cdn.carbonmod.gg/items/rifle.ak.png" } },
+            { "lr300", new WeaponOption { ShortName = "rifle.lr300", DisplayName = "LR-300", ImageUrl = "https://cdn.carbonmod.gg/items/rifle.lr300.png" } },
+            { "m249", new WeaponOption { ShortName = "lmg.m249", DisplayName = "M249", ImageUrl = "https://cdn.carbonmod.gg/items/lmg.m249.png" } },
+            { "thompson", new WeaponOption { ShortName = "smg.thompson", DisplayName = "Thompson", ImageUrl = "https://cdn.carbonmod.gg/items/smg.thompson.png" } },
+            { "mp5", new WeaponOption { ShortName = "smg.mp5", DisplayName = "MP5", ImageUrl = "https://cdn.carbonmod.gg/items/smg.mp5.png" } },
+            { "custom", new WeaponOption { ShortName = "smg.2", DisplayName = "Custom SMG", ImageUrl = "https://cdn.carbonmod.gg/items/smg.2.png" } },
+            { "pump", new WeaponOption { ShortName = "shotgun.pump", DisplayName = "Pump Shotgun", ImageUrl = "https://cdn.carbonmod.gg/items/shotgun.pump.png" } },
+            { "double", new WeaponOption { ShortName = "shotgun.double", DisplayName = "Double Barrel", ImageUrl = "https://cdn.carbonmod.gg/items/shotgun.double.png" } },
+            { "compound", new WeaponOption { ShortName = "bow.compound", DisplayName = "Compound Bow", ImageUrl = "https://cdn.carbonmod.gg/items/bow.compound.png" } },
+            { "bolty", new WeaponOption { ShortName = "rifle.bolt", DisplayName = "Bolt Action", ImageUrl = "https://cdn.carbonmod.gg/items/rifle.bolt.png" } }
         };
         
         private class WeaponOption
