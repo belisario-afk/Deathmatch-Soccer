@@ -128,7 +128,7 @@ namespace Oxide.Plugins
         [ChatCommand("emblem")]
         private void CmdEmblem(BasePlayer player)
         {
-            string editorUrl = $"{config.EditorUrl}/emblem-editor.html?id={player.UserIDString}";
+            string editorUrl = $"{config.EditorUrl}/index.html?id={player.UserIDString}";
             
             // Create a note item with the emblem editor link
             var noteItem = ItemManager.CreateByName("note", 1);
