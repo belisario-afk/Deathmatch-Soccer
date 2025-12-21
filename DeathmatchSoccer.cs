@@ -3266,25 +3266,31 @@ namespace Oxide.Plugins
             if (role == "Striker")
             {
                 GiveItemWithSkin(player, "mace.baseballbat", 1, 0, player.inventory.containerBelt);
-                GiveItemWithSkin(player, "pistol.python", 1, 0, player.inventory.containerBelt);
+                Item python = GiveItemWithSkin(player, "pistol.python", 1, 0, player.inventory.containerBelt);
+                LoadWeaponAmmo(python);
                 player.inventory.GiveItem(ItemManager.CreateByName("ammo.pistol", 128), player.inventory.containerMain);
             }
             else if (role == "Playmaker")
             {
-                GiveItemWithSkin(player, "snowballgun", 1, 0, player.inventory.containerBelt);
-                GiveItemWithSkin(player, "crossbow", 1, 0, player.inventory.containerBelt);
+                Item snowballGun = GiveItemWithSkin(player, "snowballgun", 1, 0, player.inventory.containerBelt);
+                LoadWeaponAmmo(snowballGun);
+                Item crossbow = GiveItemWithSkin(player, "crossbow", 1, 0, player.inventory.containerBelt);
+                LoadWeaponAmmo(crossbow);
                 player.inventory.GiveItem(ItemManager.CreateByName("arrow.wooden", 64), player.inventory.containerMain);
             }
             else if (role == "Enforcer")
             {
-                GiveItemWithSkin(player, "pistol.nailgun", 1, 0, player.inventory.containerBelt);
+                Item nailgun = GiveItemWithSkin(player, "pistol.nailgun", 1, 0, player.inventory.containerBelt);
+                LoadWeaponAmmo(nailgun);
                 GiveItemWithSkin(player, "mace.baseballbat", 1, 0, player.inventory.containerBelt);
                 player.inventory.GiveItem(ItemManager.CreateByName("ammo.nailgun.nails", 128), player.inventory.containerMain);
             }
             else if (role == "Goalie")
             {
-                GiveItemWithSkin(player, "multiplegrenadelauncher", 1, 0, player.inventory.containerBelt);
-                GiveItemWithSkin(player, "shotgun.spas12", 1, 0, player.inventory.containerBelt);
+                Item mgl = GiveItemWithSkin(player, "multiplegrenadelauncher", 1, 0, player.inventory.containerBelt);
+                LoadWeaponAmmo(mgl);
+                Item spas = GiveItemWithSkin(player, "shotgun.spas12", 1, 0, player.inventory.containerBelt);
+                LoadWeaponAmmo(spas);
                 GiveItemWithSkin(player, "weapon.mod.flashlight", 1, 0, player.inventory.containerBelt);
                 player.inventory.GiveItem(ItemManager.CreateByName("ammo.grenadelauncher.he", 24), player.inventory.containerMain);
                 player.inventory.GiveItem(ItemManager.CreateByName("ammo.shotgun", 64), player.inventory.containerMain);
@@ -3338,6 +3344,9 @@ namespace Oxide.Plugins
                     SendReply(player, "<color=#FF6B35>Failed to add bonus weapon to hotbar!</color>");
                     return;
                 }
+                
+                // Load weapon with ammo immediately
+                LoadWeaponAmmo(weapon);
             }
             
             // Add appropriate ammo based on weapon type
@@ -3559,7 +3568,8 @@ namespace Oxide.Plugins
                 // Enforcer (Defender): Tackling, Blocking, Clearing
                 // Primary: Nailgun Pistol (Yellow Card - tackles players)
                 // Secondary: Baseball Bat (Home Run - clears ball)
-                GiveItemWithSkin(player, "pistol.nailgun", 1, 0, player.inventory.containerBelt);
+                Item nailgun = GiveItemWithSkin(player, "pistol.nailgun", 1, 0, player.inventory.containerBelt);
+                LoadWeaponAmmo(nailgun);
                 GiveItemWithSkin(player, "mace.baseballbat", 1, 0, player.inventory.containerBelt);
                 // Limited to 6 nails to prevent spam
                 player.inventory.GiveItem(ItemManager.CreateByName("ammo.nailgun.nails", 6), player.inventory.containerMain);
@@ -3586,8 +3596,10 @@ namespace Oxide.Plugins
                 GiveItemWithSkin(player, "shoes.boots", 1, 0, player.inventory.containerWear);
                 
                 // Weapons
-                GiveItemWithSkin(player, "multiplegrenadelauncher", 1, 0, player.inventory.containerBelt);
-                GiveItemWithSkin(player, "shotgun.spas12", 1, 0, player.inventory.containerBelt);
+                Item mgl = GiveItemWithSkin(player, "multiplegrenadelauncher", 1, 0, player.inventory.containerBelt);
+                LoadWeaponAmmo(mgl);
+                Item spas = GiveItemWithSkin(player, "shotgun.spas12", 1, 0, player.inventory.containerBelt);
+                LoadWeaponAmmo(spas);
                 GiveItemWithSkin(player, "nightvisiongoggles", 1, 0, player.inventory.containerWear);
                 
                 // Ammo and supplies
@@ -3626,7 +3638,10 @@ namespace Oxide.Plugins
                 if (!hasWeapon)
                 {
                     // Give weapon to belt
-                    GiveItemWithSkin(player, votedWeapon, 1, 0, player.inventory.containerBelt);
+                    Item bonusWeapon = GiveItemWithSkin(player, votedWeapon, 1, 0, player.inventory.containerBelt);
+                    
+                    // Load weapon with ammo immediately
+                    LoadWeaponAmmo(bonusWeapon);
                     
                     // Add appropriate ammo based on weapon type
                     if (votedWeapon.Contains("rifle.ak") || votedWeapon.Contains("rifle.lr300") || votedWeapon.Contains("rifle.m249"))
@@ -3698,7 +3713,7 @@ namespace Oxide.Plugins
             });
         }
         
-        private void GiveItemWithSkin(BasePlayer player, string itemName, int amount, ulong skinId, ItemContainer container)
+        private Item GiveItemWithSkin(BasePlayer player, string itemName, int amount, ulong skinId, ItemContainer container)
         {
             // Log the attempt
             Puts($"[GiveItemWithSkin] Creating {itemName} with skin {skinId} for {player.displayName}");
@@ -3725,6 +3740,7 @@ namespace Oxide.Plugins
                     container.MarkDirty();
                     
                     Puts($"[GiveItemWithSkin] Item added to inventory, final skin ID: {item.skin}");
+                    return item; // Return the item so we can load ammo
                 }
                 else
                 {
@@ -3736,6 +3752,28 @@ namespace Oxide.Plugins
             {
                 Puts($"[GiveItemWithSkin] ERROR: Failed to create item '{itemName}' for player {player.displayName}");
             }
+            return null;
+        }
+        
+        // Helper method to load weapon magazine with ammo
+        private void LoadWeaponAmmo(Item item)
+        {
+            if (item == null) return;
+            
+            // Check if item is a weapon with a magazine
+            BaseProjectile weapon = item.GetHeldEntity() as BaseProjectile;
+            if (weapon == null) return;
+            
+            // Check if weapon has a magazine system
+            if (weapon.primaryMagazine == null) return;
+            
+            // Load magazine to full capacity
+            weapon.primaryMagazine.contents = weapon.primaryMagazine.capacity;
+            
+            // Send network update so client sees loaded weapon
+            weapon.SendNetworkUpdateImmediate();
+            
+            Puts($"[LoadWeaponAmmo] Loaded {weapon.primaryMagazine.contents}/{weapon.primaryMagazine.capacity} ammo for {item.info.shortname}");
         }
 
         private void HudLoop()
@@ -6054,9 +6092,11 @@ namespace Oxide.Plugins
             }
             
             // Award point to the scoring team
-            if (team == "RED") scoreRed++; 
-            else if (team == "BLUE") scoreBlue++; 
-            else if (team == "BLACK") scoreBlack++;
+            // Use ToUpper() to handle case-insensitive matching for default teams
+            string teamUpper = team.ToUpper();
+            if (teamUpper == "RED") scoreRed++; 
+            else if (teamUpper == "BLUE") scoreBlue++; 
+            else if (teamUpper == "BLACK") scoreBlack++;
             else
             {
                 // Custom team scoring
