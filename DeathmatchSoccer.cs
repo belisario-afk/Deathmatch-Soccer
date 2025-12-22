@@ -758,6 +758,7 @@ namespace Oxide.Plugins
             // gameMode is determined by EndModeVoting() before this is called
             
             scoreRed = 0; scoreBlue = 0; scoreBlack = 0;
+            customTeamScores.Clear(); // Reset custom team scores for new match
             matchNumber = 1;
             rerollUsedThisMatch = false; // Reset reroll flag for new match
             
@@ -6207,13 +6208,17 @@ namespace Oxide.Plugins
         
         private int GetTeamScore(string team)
         {
-            if (team == "red") return scoreRed;
-            if (team == "blue") return scoreBlue;
-            if (team == "black") return scoreBlack;
+            if (string.IsNullOrEmpty(team)) return 0;
             
-            // Check custom team scores
-            if (customTeamScores.ContainsKey(team.ToLower()))
-                return customTeamScores[team.ToLower()];
+            // Check default teams (case-insensitive)
+            string teamLower = team.ToLower();
+            if (teamLower == "red") return scoreRed;
+            if (teamLower == "blue") return scoreBlue;
+            if (teamLower == "black") return scoreBlack;
+            
+            // Check custom team scores (return 0 if not found to avoid KeyNotFoundException)
+            if (customTeamScores.ContainsKey(teamLower))
+                return customTeamScores[teamLower];
             
             return 0;
         }
